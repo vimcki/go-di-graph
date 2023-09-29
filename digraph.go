@@ -26,12 +26,12 @@ type Digraph struct {
 	lock       sync.RWMutex
 }
 
-func New(config interface{}, entrypoint string, buildFS fs.FS) *Digraph {
+func New(config interface{}, entrypoint string, buildFS fs.FS) (*Digraph, error) {
 	cfgString, err := encoder.Marshal(config)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
-	return &Digraph{config: string(cfgString), entrypoint: entrypoint, buildFS: buildFS}
+	return &Digraph{config: string(cfgString), entrypoint: entrypoint, buildFS: buildFS}, nil
 }
 
 func (d *Digraph) Close() error {
