@@ -21,31 +21,31 @@ import (
 	"github.com/vimcki/go-di-graph/internal/globals"
 )
 
-func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath string) {
+func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath string) error {
 	conf, err := getConfiguration(configFilePath)
 	if err != nil {
-		os.Exit(1)
+		return fmt.Errorf("error getting configuration: %v", err)
 	}
 	// Parse all packages in the given directory.
 	fset := token.NewFileSet()
 	packages, err := parsePackages(filepath.Join(basePath, buildPackage), fset)
 	if err != nil {
-		os.Exit(1)
+		return fmt.Errorf("error parsing packages: %v", err)
 	}
 
 	entrypoint, err := findEntrypoint(entryPoint, packages)
 	if err != nil {
-		os.Exit(1)
+		return fmt.Errorf("error finding entrypoint: %v", err)
 	}
 
 	cfgPath, err := findPath(entrypoint.Type.Params.List[0])
 	if err != nil {
-		os.Exit(1)
+		return fmt.Errorf("error finding path: %v", err)
 	}
 
 	c, err := globals.Get(packages)
 	if err != nil {
-		os.Exit(1)
+		return fmt.Errorf("error getting globals: %v", err)
 	}
 
 	for _, pkg := range packages {
@@ -54,12 +54,12 @@ func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath str
 				if fn, ok := decl.(*ast.FuncDecl); ok {
 					flattener, err := NewFlattener(fn, conf, cfgPath, c)
 					if err != nil {
-						os.Exit(1)
+						return fmt.Errorf("error creating flattener: %v", err)
 					}
 
 					err = flattener.Flatten()
 					if err != nil {
-						os.Exit(1)
+						return fmt.Errorf("error flattening: %v", err)
 					}
 
 				}
@@ -74,18 +74,18 @@ func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath str
 				filepath.Join(basePath, flatPackage, filepath.Base(filename)),
 			)
 			if err != nil {
-				fmt.Println("Error creating file:", err)
-				os.Exit(1)
+				return fmt.Errorf("error creating file: %v", err)
 			}
 			defer outputFile.Close()
 			// Print the AST to the file
 			err = format.Node(outputFile, fset, file)
 			if err != nil {
-				fmt.Println("Error printing file:", err)
-				os.Exit(1)
+				return fmt.Errorf("error printing file: %v", err)
 			}
 		}
 	}
+
+	return nil
 }
 
 func findPath(entrypoint *ast.Field) (string, error) {

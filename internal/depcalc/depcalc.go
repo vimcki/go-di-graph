@@ -7,7 +7,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"os"
 
 	"github.com/vimcki/go-di-graph/internal/deptree"
 	"github.com/vimcki/go-di-graph/internal/deptree/evaluator"
@@ -32,7 +31,7 @@ type Result struct {
 func Depcalc(entryPoint, path string) (string, error) {
 	packages, err := parsePackages(path)
 	if err != nil {
-		os.Exit(1)
+		return "", fmt.Errorf("failed to parse packages: %w", err)
 	}
 
 	var start *ast.FuncDecl
