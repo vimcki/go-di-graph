@@ -250,7 +250,6 @@ func (f *Flattener) flattenBlockStmt(
 			f.fillCtxWithResult(stmt.Lhs[0], result)
 			newList = append(newList, stmt)
 		case *ast.IfStmt:
-			fmt.Println("if", stmt.Cond)
 			res, err := f.flattenIfStmt(stmt)
 			if err != nil {
 				return fmt.Errorf("error flattening if statement: %v", err)
@@ -296,7 +295,6 @@ func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 	fset := token.NewFileSet()
 	printer.Fprint(&buf, fset, ifStmt.Cond)
 	eval := goval.NewEvaluator()
-	fmt.Println(buf.String())
 	result, err := eval.Evaluate(buf.String(), f.ctx, evaluator.Funcs)
 	if err != nil {
 		// TODO this is hack to make function call on receiver work
