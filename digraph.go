@@ -114,7 +114,10 @@ func (d *Digraph) build() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write config file: %w", err)
 	}
 
-	flatten.Flatten(d.dir, "build", "flat", d.entrypoint, configPath)
+	err = flatten.Flatten(d.dir, "build", "flat", d.entrypoint, configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to flatten: %w", err)
+	}
 
 	deptree, err := depcalc.Depcalc(d.entrypoint, path.Join(d.dir, "/flat"))
 	if err != nil {
@@ -183,14 +186,19 @@ func (d *Digraph) unpackBuildFS() error {
 			return fmt.Errorf("failed to open file: %w", err)
 		}
 
-		bytes := make([]byte, 1024)
+		stat, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to stat file: %w", err)
+		}
 
-		i, err := file.Read(bytes)
+		size := stat.Size()
+
+		bytes := make([]byte, size)
+
+		_, err = file.Read(bytes)
 		if err != nil {
 			return fmt.Errorf("failed to read file: %w", err)
 		}
-
-		bytes = bytes[:i]
 
 		err = os.WriteFile(d.dir+"/build/"+path, bytes, 0o644)
 		if err != nil {
