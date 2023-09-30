@@ -1,6 +1,7 @@
 package digraph
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -17,6 +18,7 @@ import (
 )
 
 type Digraph struct {
+	marshaler  func(interface{}) ([]byte, error)
 	config     string
 	dir        string
 	graph      []byte
@@ -26,12 +28,36 @@ type Digraph struct {
 	lock       sync.RWMutex
 }
 
-func New(config interface{}, entrypoint string, buildFS fs.FS) (*Digraph, error) {
-	cfgString, err := encoder.Marshal(config)
+func New(
+	config interface{},
+	entrypoint string,
+	buildFS fs.FS,
+	options ...func(*Digraph),
+) (*Digraph, error) {
+	graph := &Digraph{
+		entrypoint: entrypoint,
+		buildFS:    buildFS,
+		marshaler:  json.Marshal,
+	}
+
+	for _, option := range options {
+		option(graph)
+	}
+
+	cfgString, err := graph.marshaler(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config: %w", err)
 	}
-	return &Digraph{config: string(cfgString), entrypoint: entrypoint, buildFS: buildFS}, nil
+
+	graph.config = string(cfgString)
+
+	return graph, nil
+}
+
+func WithCustomMarshal() func(*Digraph) {
+	return func(d *Digraph) {
+		d.marshaler = encoder.Marshal
+	}
 }
 
 func (d *Digraph) Close() error {
@@ -178,9 +204,11 @@ func (d *Digraph) unpackBuildFS() error {
 		if !isLevelDeep(path) {
 			return nil
 		}
+
 		if e.IsDir() {
 			return nil
 		}
+
 		file, err := d.buildFS.Open(path)
 		if err != nil {
 			return fmt.Errorf("failed to open file: %w", err)
