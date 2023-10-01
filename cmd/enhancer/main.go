@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 
 	"github.com/vimcki/go-di-graph/internal/enhancer"
@@ -15,11 +16,13 @@ func main() {
 
 	data, err := os.ReadFile(*treePath)
 	if err != nil {
+		log.Println(err)
 		os.Exit(1)
 	}
 
 	rusult, err := enhancer.Enhance(*configPath, string(data))
 	if err != nil {
+		log.Println(err)
 		os.Exit(1)
 	}
 

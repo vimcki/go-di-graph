@@ -3,6 +3,7 @@ package flatten
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -194,7 +195,6 @@ func NewFlattener(
 	}
 
 	context := map[string]interface{}{
-		// TODO get name of conf from entrypoint
 		cfgParamName: conf,
 		"err":        nil,
 		"s":          map[string]interface{}{},
@@ -315,7 +315,7 @@ func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 		case *ast.BlockStmt:
 			return elseStmt.List, nil
 		default:
-			panic("Unknown else statement")
+			return nil, errors.New("Unknown else statement")
 		}
 	}
 	return nil, nil

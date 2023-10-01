@@ -60,7 +60,7 @@ func enhanceTree(dep *Dependency, config map[string]interface{}) error {
 
 		dep.Value, err = evaluator.Evaluate(dep.Name, ctx, nil)
 		if err != nil {
-			return fmt.Errorf("failed to evaluate expression '%s': %w", dep.Name, err)
+			dep.Value = dep.Name + " (error: " + err.Error() + ")"
 		}
 	}
 
