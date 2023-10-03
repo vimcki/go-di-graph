@@ -18,14 +18,17 @@ import (
 )
 
 type Digraph struct {
-	marshaler  func(interface{}) ([]byte, error)
-	config     string
-	dir        string
-	graph      []byte
-	entrypoint string
-	buildFS    fs.FS
-	err        error
-	lock       sync.RWMutex
+	marshaler   func(interface{}) ([]byte, error)
+	config      string
+	dir         string
+	graph       []byte
+	contentType string
+	entrypoint  string
+	buildFS     fs.FS
+	err         error
+	lock        sync.RWMutex
+	render      func([]byte) ([]byte, string, error)
+	blocking    bool
 }
 
 func New(
@@ -39,6 +42,8 @@ func New(
 		buildFS:    buildFS,
 		marshaler:  json.Marshal,
 	}
+
+	graph.render = graph.renderD2
 
 	for _, option := range options {
 		option(graph)
@@ -60,12 +65,31 @@ func WithCustomMarshal() func(*Digraph) {
 	}
 }
 
+func WithNoRender() func(*Digraph) {
+	return func(d *Digraph) {
+		d.render = func(tree []byte) ([]byte, string, error) {
+			return tree, "application/json", nil
+		}
+	}
+}
+
+func WithBlockingHandler() func(*Digraph) {
+	return func(d *Digraph) {
+		d.blocking = true
+	}
+}
+
 func (d *Digraph) Close() error {
 	return os.RemoveAll(d.dir)
 }
 
 func (d *Digraph) Handler() func() ([]byte, string) {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
 	go func() {
+		defer wg.Done()
+
 		err := d.buildGraph()
 		if err != nil {
 			d.lock.Lock()
@@ -76,15 +100,14 @@ func (d *Digraph) Handler() func() ([]byte, string) {
 		}
 	}()
 
+	if d.blocking {
+		wg.Wait()
+	}
+
 	return d.handle
 }
 
 func (d *Digraph) buildGraph() error {
-	_, err := exec.LookPath("d2")
-	if err != nil {
-		return fmt.Errorf("d2 binary is not available: %w", err)
-	}
-
 	dir, err := os.MkdirTemp("/tmp/", "digraph")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
@@ -97,15 +120,21 @@ func (d *Digraph) buildGraph() error {
 		return fmt.Errorf("failed to unpack build fs: %w", err)
 	}
 
-	graph, err := d.build()
+	graph, err := d.buildTree()
 	if err != nil {
 		return fmt.Errorf("failed to build graph: %w", err)
+	}
+
+	rendered, contentType, err := d.render(graph)
+	if err != nil {
+		return fmt.Errorf("failed to render graph: %w", err)
 	}
 
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	d.graph = graph
+	d.graph = rendered
+	d.contentType = contentType
 
 	return nil
 }
@@ -124,10 +153,10 @@ func (d *Digraph) handle() ([]byte, string) {
 		return []byte("building..."), "text/plain"
 	}
 
-	return graph, "image/svg+xml"
+	return graph, d.contentType
 }
 
-func (d *Digraph) build() ([]byte, error) {
+func (d *Digraph) buildTree() ([]byte, error) {
 	err := os.Mkdir(d.dir+"/flat", 0o755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create build dir: %w", err)
@@ -165,16 +194,25 @@ func (d *Digraph) build() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write enhanced file: %w", err)
 	}
 
-	d2Graph, err := d2.Render(enhanced)
+	return []byte(enhanced), nil
+}
+
+func (d *Digraph) renderD2(tree []byte) ([]byte, string, error) {
+	_, err := exec.LookPath("d2")
 	if err != nil {
-		return nil, fmt.Errorf("failed to render d2 graph: %w", err)
+		return nil, "", fmt.Errorf("d2 binary is not available: %w", err)
+	}
+
+	d2Graph, err := d2.Render(string(tree))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to render d2 graph: %w", err)
 	}
 
 	renderPath := path.Join(d.dir, "/render.d2")
 
 	err = os.WriteFile(renderPath, d2Graph, 0o644)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write d2 file: %w", err)
+		return nil, "", fmt.Errorf("failed to write d2 file: %w", err)
 	}
 
 	svgPath := path.Join(d.dir, "/render.svg")
@@ -183,15 +221,15 @@ func (d *Digraph) build() ([]byte, error) {
 
 	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run d2: %w", err)
+		return nil, "", fmt.Errorf("failed to run d2: %w", err)
 	}
 
 	bytes, err := os.ReadFile(svgPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
+		return nil, "", fmt.Errorf("failed to read file: %w", err)
 	}
 
-	return bytes, nil
+	return bytes, "image/svg+xml", nil
 }
 
 func (d *Digraph) unpackBuildFS() error {

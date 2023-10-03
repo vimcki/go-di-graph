@@ -1,0 +1,41 @@
+{
+  "name": "",
+  "deps": [
+    {
+      "name": "GETs",
+      "deps": [
+        {
+          "name": "",
+          "deps": [
+            {
+              "name": "\"endpoint1\"",
+              "deps": [
+                {
+                  "name": "gethandler.Handle"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "POSTs",
+      "deps": [
+        {
+          "name": "",
+          "deps": [
+            {
+              "name": "\"endpoint2\"",
+              "deps": [
+                {
+                  "name": "upload.Handle"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -178,15 +179,9 @@ func (e *Evaluator) evalIdent(t *ast.Ident) (dependency, error) {
 	if t.Name == "nil" {
 		return dependency{flatten: true, created: "nil"}, nil
 	}
-	if t.Name == "cfg" {
-		return dependency{
-			name:    "cfg",
-			created: "Ident, cfg",
-			flatten: true,
-		}, nil
-	}
 	identDep, ok := e.env.dep[t.Name]
 	if !ok {
+		log.Println(t.Name)
 		return dependency{
 			name:    t.Name + " (unknown)",
 			created: "Ident, unknown",
@@ -287,10 +282,7 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 					return dependency{}, err
 				}
 				ident := nodeArgs[i].Names[0].Name
-				// TODO handle cfg properly
-				if ident == "cfg" {
-					continue
-				}
+				log.Println("ident", ident)
 				args[ident] = dep
 			}
 			evaluator := NewEvaluatorFrom(e, args)
