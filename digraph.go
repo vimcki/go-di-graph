@@ -284,3 +284,7 @@ func isLevelDeep(path string) bool {
 	dir, _ := filepath.Split(path)
 	return dir == ""
 }
+
+func (d *Digraph) Dir() string {
+	return d.dir
+}

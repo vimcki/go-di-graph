@@ -39,7 +39,7 @@ func Build(cfg configuration.Configuration) (*Set, error) {
 			"endpoint1": gethandler.Handle,
 		},
 		POSTs: map[string]gin.HandlerFunc{
-			"endpoint2": upload.Handle,
+			"endpoint2": upload.NewHandler(repo).Handle,
 		},
 	}, nil
 }

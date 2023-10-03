@@ -67,6 +67,8 @@ func TestDigraph(t *testing.T) {
 			result, contentType := handler()
 
 			if contentType != "application/json" {
+				t.Log(dg.Dir())
+				t.Log(string(result))
 				t.Fatalf("expected application/json, got %s", contentType)
 			}
 
@@ -90,6 +92,12 @@ func TestDigraph(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(got, want) {
+				t.Log(dg.Dir())
+				pretty, err := json.MarshalIndent(got, "", "  ")
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Log(string(pretty))
 				printDiff(t, want, got)
 				t.Fatalf("%v failed", test.name)
 			}

@@ -111,7 +111,7 @@ func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
 	case *ast.CallExpr:
 		return e.evalCallExpr(t)
 	case *ast.SelectorExpr:
-		return e.evalSelectorExpr(t), nil
+		return e.evalSelectorExpr(t)
 	case *ast.CompositeLit:
 		return e.evalCompositeLiteral(t)
 	case *ast.BasicLit:
@@ -151,10 +151,13 @@ func (e *Evaluator) evalFuncLit(expr *ast.FuncLit) (dependency, error) {
 }
 
 func (e *Evaluator) evalKeyValueExpr(expr *ast.KeyValueExpr) (dependency, error) {
+	deps := []dependency{}
 	valDep, err := e.evalExpr(expr.Value)
 	if err != nil {
 		return dependency{}, err
 	}
+
+	deps = append(deps, valDep)
 
 	var name string
 	switch key := expr.Key.(type) {
@@ -163,14 +166,21 @@ func (e *Evaluator) evalKeyValueExpr(expr *ast.KeyValueExpr) (dependency, error)
 	case *ast.BasicLit:
 		name = key.Value
 	case *ast.SelectorExpr:
-		name = evalSelectorRecursively(key)
+		var dep *dependency
+		name, dep, err = e.evalSelectorRecursively(key)
+		if err != nil {
+			return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
+		}
+		if dep != nil {
+			deps = append(deps, *dep)
+		}
 	default:
 		return dependency{}, errors.New("unknown key type in eval, " + reflect.TypeOf(key).String())
 	}
 
 	return dependency{
 		name:    name,
-		deps:    []dependency{valDep},
+		deps:    deps,
 		created: "KeyValueExpr",
 	}, nil
 }
@@ -196,26 +206,97 @@ func (e *Evaluator) evalIdent(t *ast.Ident) (dependency, error) {
 	return identDep, nil
 }
 
-func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) dependency {
-	selector := evalSelectorRecursively(expr)
+func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error) {
+	ident, err := findIdent(expr)
+	if err != nil {
+		return dependency{}, err
+	}
+
+	dep, ok := e.env.dep[ident]
+	if ok {
+		return dep, nil
+	}
+
+	selector, recDep, err := e.evalSelectorRecursively(expr)
+	if err != nil {
+		return dependency{}, err
+	}
+
+	deps := []dependency{}
+
+	if recDep != nil {
+		deps = append(deps, *recDep)
+	}
+
 	return dependency{
 		name:    selector,
 		created: "SelectorExpr",
+		deps:    deps,
+	}, nil
+}
+
+func findIdent(expr *ast.SelectorExpr) (string, error) {
+	switch expr.X.(type) {
+	case *ast.Ident:
+		return expr.X.(*ast.Ident).Name, nil
+	case *ast.SelectorExpr:
+		return findIdent(expr.X.(*ast.SelectorExpr))
+	case *ast.CallExpr:
+		switch expr.X.(*ast.CallExpr).Fun.(type) {
+		case *ast.SelectorExpr:
+			return findIdent(expr.X.(*ast.CallExpr).Fun.(*ast.SelectorExpr))
+		default:
+			return "", fmt.Errorf("unknown fun type in find ident: %s", reflect.TypeOf(expr.X).String())
+		}
+	default:
+		return "", fmt.Errorf("unknown selector expr type in find ident: %s", reflect.TypeOf(expr.X).String())
 	}
 }
 
-func evalSelectorRecursively(expr *ast.SelectorExpr) string {
+func (e *Evaluator) evalSelectorRecursively(expr *ast.SelectorExpr) (string, *dependency, error) {
+	var err error
 	var selector string
+	var dep *dependency
 	switch expr.X.(type) {
 	case *ast.Ident:
 		selector = expr.X.(*ast.Ident).Name
 
 	case *ast.SelectorExpr:
-		selector = evalSelectorRecursively(expr.X.(*ast.SelectorExpr))
+		selector, dep, err = e.evalSelectorRecursively(expr.X.(*ast.SelectorExpr))
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to eval selector recursively: %w", err)
+		}
+	case *ast.CallExpr:
+		callDep, err := e.evalCallExpr(expr.X.(*ast.CallExpr))
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to eval call expr: %w", err)
+		}
+
+		var selectorDep *dependency
+		switch expr.X.(*ast.CallExpr).Fun.(type) {
+		case *ast.SelectorExpr:
+			selector, selectorDep, err = e.evalSelectorRecursively(expr.X.(*ast.CallExpr).Fun.(*ast.SelectorExpr))
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to eval selector recursively: %w", err)
+			}
+
+		default:
+			return "", nil, fmt.Errorf("unknown fun type in eval selector: %s", reflect.TypeOf(expr.X).String())
+		}
+
+		if selectorDep == nil {
+			dep = &callDep
+		} else {
+			dep = &dependency{
+				deps:    []dependency{*selectorDep, callDep},
+				created: "SelectorRecursively",
+			}
+		}
+
 	default:
-		panic("unknown selector expr type")
+		return "", nil, fmt.Errorf("unknown selector expr type in eval selector: %s", reflect.TypeOf(expr.X).String())
 	}
-	return selector + "." + expr.Sel.Name
+	return selector + "." + expr.Sel.Name, dep, nil
 }
 
 func (e *Evaluator) evalCompositeLiteral(expr *ast.CompositeLit) (dependency, error) {
@@ -357,16 +438,23 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 			}
 			deps = append(deps, dep)
 		}
+		var err error
 		for _, ident := range t.Lhs {
 			name := ""
 			switch i := ident.(type) {
 			case *ast.Ident:
 				name = ident.(*ast.Ident).Name
 			case *ast.SelectorExpr:
-				name = evalSelectorRecursively(i)
+				var dep *dependency
+				name, dep, err = e.evalSelectorRecursively(i)
+				if err != nil {
+					return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
+				}
+				deps = append(deps, *dep)
 			default:
 				return dependency{}, errors.New("unknown assign stmt type in eval, " + reflect.TypeOf(i).String())
 			}
+
 			e.env.dep[name] = dependency{
 				name:    name,
 				deps:    deps,
