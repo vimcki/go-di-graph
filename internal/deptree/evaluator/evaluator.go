@@ -272,26 +272,7 @@ func (e *Evaluator) evalSelectorRecursively(expr *ast.SelectorExpr) (string, *de
 			return "", nil, fmt.Errorf("failed to eval call expr: %w", err)
 		}
 
-		var selectorDep *dependency
-		switch expr.X.(*ast.CallExpr).Fun.(type) {
-		case *ast.SelectorExpr:
-			selector, selectorDep, err = e.evalSelectorRecursively(expr.X.(*ast.CallExpr).Fun.(*ast.SelectorExpr))
-			if err != nil {
-				return "", nil, fmt.Errorf("failed to eval selector recursively: %w", err)
-			}
-
-		default:
-			return "", nil, fmt.Errorf("unknown fun type in eval selector: %s", reflect.TypeOf(expr.X).String())
-		}
-
-		if selectorDep == nil {
-			dep = &callDep
-		} else {
-			dep = &dependency{
-				deps:    []dependency{*selectorDep, callDep},
-				created: "SelectorRecursively",
-			}
-		}
+		dep = &callDep
 
 	default:
 		return "", nil, fmt.Errorf("unknown selector expr type in eval selector: %s", reflect.TypeOf(expr.X).String())
@@ -348,6 +329,7 @@ func (e *Evaluator) evalCompositeLiteralSlice(expr *ast.CompositeLit) (dependenc
 func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 	var name string
 	var flatten bool
+	deps := []dependency{}
 	switch t := callExpr.Fun.(type) {
 	case *ast.Ident:
 		if !in(t.Name, buitins) {
@@ -363,7 +345,6 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 					return dependency{}, err
 				}
 				ident := nodeArgs[i].Names[0].Name
-				log.Println("ident", ident)
 				args[ident] = dep
 			}
 			evaluator := NewEvaluatorFrom(e, args)
@@ -381,17 +362,21 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		switch t.X.(type) {
 		case *ast.Ident:
 			name = t.X.(*ast.Ident).Name + "." + fnName
+			flatten = false
 		case *ast.CallExpr:
-			return e.evalCallExpr(t.X.(*ast.CallExpr))
+			flatten = true
+			dep, err := e.evalCallExpr(t.X.(*ast.CallExpr))
+			if err != nil {
+				return dependency{}, fmt.Errorf("failed eval call expr: %w", err)
+			}
+			deps = append(deps, dep)
 		default:
 			return dependency{}, errors.New("unknown call expr type in eval selector expr, " + reflect.TypeOf(t).String())
 		}
-		flatten = false
 	default:
 		return dependency{}, errors.New("unknown call expr type in eval, " + reflect.TypeOf(t).String())
 	}
 
-	var deps []dependency
 	for _, arg := range callExpr.Args {
 		dep, err := e.evalExpr(arg)
 		if err != nil {
@@ -450,7 +435,9 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 				if err != nil {
 					return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
 				}
-				deps = append(deps, *dep)
+				if dep != nil {
+					deps = append(deps, *dep)
+				}
 			default:
 				return dependency{}, errors.New("unknown assign stmt type in eval, " + reflect.TypeOf(i).String())
 			}

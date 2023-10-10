@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	digraph "github.com/vimcki/go-di-graph"
+	"github.com/vimcki/go-di-graph/internal/d2"
 	"github.com/wI2L/jsondiff"
 )
 
@@ -97,7 +98,9 @@ func TestDigraph(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Log(string(pretty))
+
+				writeD2(t, pretty)
+
 				printDiff(t, want, got)
 				t.Fatalf("%v failed", test.name)
 			}
@@ -112,5 +115,17 @@ func printDiff(t *testing.T, want, got map[string]interface{}) {
 	}
 	for _, patch := range patches {
 		t.Logf("%v", patch)
+	}
+}
+
+func writeD2(t *testing.T, data []byte) {
+	data, err := d2.Render(string(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile("render.d2", []byte(data), 0o644)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
