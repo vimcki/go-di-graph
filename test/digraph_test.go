@@ -99,7 +99,7 @@ func TestDigraph(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				t.Log(string(pretty))
+				// t.Log(string(pretty))
 
 				writeD2(t, pretty)
 
