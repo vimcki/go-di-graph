@@ -99,6 +99,8 @@ func TestDigraph(t *testing.T) {
 					t.Fatal(err)
 				}
 
+				t.Log(string(pretty))
+
 				writeD2(t, pretty)
 
 				printDiff(t, want, got)
