@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+var builtins = []string{
+	"append",
+	"",
+}
+
 type dependency struct {
 	ID    int
 	Name  string       `json:"name,omitempty"`
@@ -34,7 +39,7 @@ func Render(graph string) ([]byte, error) {
 
 func fillIDs(dep *dependency, id *int, nameToID map[string]int) {
 	oldID, ok := nameToID[dep.Name]
-	if ok {
+	if ok && !in(builtins, dep.Name) && !isLiteral(dep.Name) {
 		dep.ID = oldID
 	} else {
 		dep.ID = *id
@@ -83,4 +88,20 @@ func filterDuplicates(result *[]string) {
 		}
 	}
 	*result = filtered
+}
+
+func in(list []string, elem string) bool {
+	for _, e := range list {
+		if e == elem {
+			return true
+		}
+	}
+	return false
+}
+
+func isLiteral(x string) bool {
+	if strings.HasPrefix(x, "\"") && strings.HasSuffix(x, "\"") {
+		return true
+	}
+	return false
 }
