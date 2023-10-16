@@ -3,7 +3,6 @@ package dag
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -25,8 +24,6 @@ func Render(graph string) ([]byte, error) {
 	fillIDs(&root, &rootID, make(map[string]int))
 
 	var result []string
-
-	log.Printf("Root: %+v", root)
 
 	generateGraphD2(root, make(map[int]bool), &result)
 
@@ -51,7 +48,7 @@ func fillIDs(dep *dependency, id *int, nameToID map[string]int) {
 
 func generateGraphD2(dep dependency, nodes map[int]bool, result *[]string) {
 	if dep.ID == 0 {
-		log.Println("Skipping empty node ", dep.Name)
+		// skip repeated nodes
 		return
 	}
 	if !nodes[dep.ID] {
