@@ -123,7 +123,7 @@ func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
 	case *ast.CompositeLit:
 		return e.evalCompositeLiteral(t)
 	case *ast.BasicLit:
-		return dependency{flatten: true, created: "BasicLit"}, nil
+		return dependency{name: t.Value, flatten: false, created: "BasicLit"}, nil
 	case *ast.KeyValueExpr:
 		return e.evalKeyValueExpr(t)
 	case *ast.FuncLit:
