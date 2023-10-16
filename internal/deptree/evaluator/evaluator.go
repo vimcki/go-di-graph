@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -24,9 +23,12 @@ type dependency struct {
 }
 
 type Evaluator struct {
-	env     *Environment
-	fnMap   map[string]*ast.FuncDecl
-	globals map[string]dependency
+	env             *Environment
+	fnMap           map[string]*ast.FuncDecl
+	globals         map[string]dependency
+	currentReceiver string
+	receiverEnv     map[string]dependency
+	configVarName   string
 }
 
 type Environment struct {
@@ -46,8 +48,11 @@ func NewEvaluator(fnMap map[string]*ast.FuncDecl, c map[string]interface{}) *Eva
 		env: &Environment{
 			dep: dep,
 		},
-		fnMap:   fnMap,
-		globals: dep,
+		fnMap:       fnMap,
+		globals:     dep,
+		receiverEnv: map[string]dependency{},
+		// TODO, read from somewhere
+		configVarName: "cfg",
 	}
 }
 
@@ -92,6 +97,9 @@ func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 }
 
 func (e *Evaluator) EvalFunc(fn *ast.FuncDecl) (dependency, error) {
+	if fn.Recv != nil {
+		e.currentReceiver = fn.Recv.List[0].Names[0].Name
+	}
 	var deps dependency
 	var err error
 	for _, stmt := range fn.Body.List {
@@ -132,10 +140,10 @@ func (e *Evaluator) evalFuncLit(expr *ast.FuncLit) (dependency, error) {
 	var deps dependency
 	var err error
 	for _, arg := range expr.Type.Params.List {
-		e.env.dep[arg.Names[0].Name] = dependency{
+		e.setEnv(arg.Names[0].Name, dependency{
 			created: "FuncLit",
 			flatten: true,
-		}
+		})
 	}
 	for _, stmt := range expr.Body.List {
 		deps, err = e.evalStatement(stmt)
@@ -189,9 +197,13 @@ func (e *Evaluator) evalIdent(t *ast.Ident) (dependency, error) {
 	if t.Name == "nil" {
 		return dependency{flatten: true, created: "nil"}, nil
 	}
+
+	if t.Name == e.configVarName {
+		return dependency{flatten: true, created: "config ident"}, nil
+	}
+
 	identDep, ok := e.env.dep[t.Name]
 	if !ok {
-		log.Println(t.Name)
 		return dependency{
 			name:    t.Name + " (unknown)",
 			created: "Ident, unknown",
@@ -212,6 +224,19 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 		return dependency{}, err
 	}
 
+	if ident == e.configVarName {
+		selector, _, err := e.evalSelectorRecursively(expr)
+		if err != nil {
+			return dependency{}, err
+		}
+
+		return dependency{
+			name:    selector,
+			created: "SelectorExpr config",
+			flatten: false,
+		}, nil
+	}
+
 	dep, ok := e.env.dep[ident]
 	if ok {
 		return dep, nil
@@ -223,6 +248,16 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 	}
 
 	deps := []dependency{}
+
+	selectorDep, ok := e.env.dep[selector]
+	if ok {
+		return dependency{
+			name:    selector,
+			deps:    []dependency{selectorDep},
+			created: "SelectorExpr selector dep",
+			flatten: true,
+		}, nil
+	}
 
 	if recDep != nil {
 		deps = append(deps, *recDep)
@@ -352,6 +387,9 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 			if err != nil {
 				return dependency{}, err
 			}
+
+			e.promoteReceiverEnv(evaluator)
+
 			dep.flatten = true
 			return dep, nil
 		}
@@ -361,8 +399,35 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		fnName := t.Sel.Name
 		switch t.X.(type) {
 		case *ast.Ident:
-			name = t.X.(*ast.Ident).Name + "." + fnName
-			flatten = false
+			if e.currentReceiver != "" && e.currentReceiver == t.X.(*ast.Ident).Name {
+				args := make(map[string]dependency)
+				node, err := e.getFuncNode(fnName)
+				if err != nil {
+					return dependency{}, err
+				}
+				nodeArgs := node.Type.Params.List
+				for i, arg := range callExpr.Args {
+					dep, err := e.evalExpr(arg)
+					if err != nil {
+						return dependency{}, err
+					}
+					ident := nodeArgs[i].Names[0].Name
+					args[ident] = dep
+				}
+				evaluator := NewEvaluatorFrom(e, args)
+				dep, err := evaluator.EvalFunc(node)
+				if err != nil {
+					return dependency{}, err
+				}
+
+				e.promoteReceiverEnv(evaluator)
+
+				dep.flatten = true
+				return dep, nil
+			} else {
+				name = t.X.(*ast.Ident).Name + "." + fnName
+				flatten = false
+			}
 		case *ast.CallExpr:
 			flatten = true
 			dep, err := e.evalCallExpr(t.X.(*ast.CallExpr))
@@ -405,8 +470,10 @@ func NewEvaluatorFrom(e *Evaluator, args map[string]dependency) *Evaluator {
 		env: &Environment{
 			dep: dep,
 		},
-		fnMap:   e.fnMap,
-		globals: e.globals,
+		fnMap:         e.fnMap,
+		globals:       e.globals,
+		receiverEnv:   map[string]dependency{},
+		configVarName: e.configVarName,
 	}
 }
 
@@ -442,11 +509,11 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 				return dependency{}, errors.New("unknown assign stmt type in eval, " + reflect.TypeOf(i).String())
 			}
 
-			e.env.dep[name] = dependency{
+			e.setEnv(name, dependency{
 				name:    name,
 				deps:    deps,
 				created: "AssignStmt",
-			}
+			})
 		}
 		return dependency{
 			created: "AssignStmt, return empty dep",
@@ -466,10 +533,10 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 
 func (e *Evaluator) evalDeclStmt(stmt *ast.DeclStmt) (dependency, error) {
 	name := stmt.Decl.(*ast.GenDecl).Specs[0].(*ast.ValueSpec).Names[0].Name
-	e.env.dep[name] = dependency{
+	e.setEnv(name, dependency{
 		flatten: true,
 		created: "DeclStmt",
-	}
+	})
 
 	return dependency{
 		created: "DeclStmt, return empty dep",
@@ -495,8 +562,8 @@ func (e *Evaluator) evalRangeStmt(stmt *ast.RangeStmt) (dependency, error) {
 	if err != nil {
 		return dependency{}, err
 	}
-	e.env.dep[key] = dep
-	e.env.dep[val] = dep
+	e.setEnv(key, dep)
+	e.setEnv(val, dep)
 	return e.evalBlockStmt(stmt.Body)
 }
 
@@ -541,5 +608,21 @@ func printDep(dep dependency, level int) {
 	// log.Printf("%s%s:%v - %s\n", strings.Repeat(" ", level), dep.name, dep.flatten, dep.created)
 	for _, d := range dep.deps {
 		printDep(d, level+1)
+	}
+}
+
+func (e *Evaluator) setEnv(name string, dep dependency) {
+	e.env.dep[name] = dep
+	split := strings.Split(name, ".")
+	if len(split) > 1 && e.currentReceiver != "" && split[0] == e.currentReceiver {
+		// TODO this will not work for patterns like: s.coreAPIConnection.Addr
+		e.receiverEnv[split[1]] = dep
+	}
+}
+
+func (e *Evaluator) promoteReceiverEnv(eval *Evaluator) {
+	for k, v := range eval.receiverEnv {
+		e.env.dep["s."+k] = v
+		e.receiverEnv[k] = v
 	}
 }

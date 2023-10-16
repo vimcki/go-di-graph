@@ -23,6 +23,9 @@ type Test struct {
 //go:embed modules/test1/build
 var test1 embed.FS
 
+//go:embed modules/test_set_build/build
+var test2 embed.FS
+
 func TestDigraph(t *testing.T) {
 	tests := []Test{
 		{
@@ -30,6 +33,12 @@ func TestDigraph(t *testing.T) {
 			entrypoint: "Build",
 			fs:         test1,
 			path:       "modules/test1/",
+		},
+		{
+			name:       "test_set_build",
+			entrypoint: "Build",
+			fs:         test2,
+			path:       "modules/test_set_build/",
 		},
 	}
 
