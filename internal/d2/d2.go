@@ -1,7 +1,7 @@
 package d2
 
-import "github.com/vimcki/go-di-graph/internal/d2/tree"
+import "github.com/vimcki/go-di-graph/internal/d2/dag"
 
 func Render(graph string) ([]byte, error) {
-	return tree.Render(graph)
+	return dag.Render(graph)
 }

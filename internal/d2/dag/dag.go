@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -13,6 +14,7 @@ var builtins = []string{
 
 type dependency struct {
 	ID    int
+	Hash  string
 	Name  string       `json:"name,omitempty"`
 	Deps  []dependency `json:"deps,omitempty"`
 	Value interface{}  `json:"value,omitempty"`
@@ -26,6 +28,8 @@ func Render(graph string) ([]byte, error) {
 
 	rootID := 1
 
+	fillHashes(&root)
+
 	fillIDs(&root, &rootID, make(map[string]int))
 
 	var result []string
@@ -37,17 +41,17 @@ func Render(graph string) ([]byte, error) {
 	return []byte(strings.Join(result, "\n")), nil
 }
 
-func fillIDs(dep *dependency, id *int, nameToID map[string]int) {
-	oldID, ok := nameToID[dep.Name]
-	if ok && !in(builtins, dep.Name) && !isLiteral(dep.Name) {
-		dep.ID = oldID
+func fillIDs(dep *dependency, id *int, hashToID map[string]int) {
+	seenID, ok := hashToID[dep.Hash]
+	if ok {
+		dep.ID = seenID
 	} else {
 		dep.ID = *id
-		nameToID[dep.Name] = *id
+		hashToID[dep.Hash] = *id
 		*id++
 	}
 	for i := range dep.Deps {
-		fillIDs(&dep.Deps[i], id, nameToID)
+		fillIDs(&dep.Deps[i], id, hashToID)
 	}
 }
 
@@ -104,4 +108,21 @@ func isLiteral(x string) bool {
 		return true
 	}
 	return false
+}
+
+func fillHashes(dep *dependency) error {
+	bytes, err := json.Marshal(dep)
+	if err != nil {
+		return fmt.Errorf("failed to marshal dependency: %w", err)
+	}
+	dep.Hash = fmt.Sprintf("%x", sha256.Sum256(bytes))
+
+	for i := range dep.Deps {
+		err = fillHashes(&dep.Deps[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
