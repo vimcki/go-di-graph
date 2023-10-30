@@ -10,7 +10,6 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,7 +179,6 @@ func findEntrypoint(
 								continue
 							}
 						} else {
-							log.Printf("Found entrypoint %v in package %v", entryPoint, pkg.Name)
 							return fn, nil
 						}
 					}
