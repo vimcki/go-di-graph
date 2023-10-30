@@ -10,6 +10,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,7 @@ func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath str
 	}
 	// Parse all packages in the given directory.
 	fset := token.NewFileSet()
+
 	packages, err := parsePackages(filepath.Join(basePath, buildPackage), fset)
 	if err != nil {
 		return fmt.Errorf("error parsing packages: %v", err)
@@ -62,7 +64,6 @@ func Flatten(basePath, buildPackage, flatPackage, entryPoint, configFilePath str
 					if err != nil {
 						return fmt.Errorf("error flattening: %v", err)
 					}
-
 				}
 			}
 		}
@@ -96,6 +97,7 @@ func findPath(entrypoint *ast.Field) (string, error) {
 	case *ast.SelectorExpr:
 		pkg := t.X.(*ast.Ident).Name
 		paramStruct := entrypoint.Type.(*ast.SelectorExpr).Sel.Name
+
 		return pkg + "." + paramStruct, nil
 	case *ast.MapType:
 		// map type doesn't have a path
@@ -115,8 +117,10 @@ func getConfiguration(s string) (map[string]interface{}, error) {
 		if err := k.Load(file.Provider(s), toml.Parser()); err != nil {
 			return nil, fmt.Errorf("error loading file: %v", err)
 		}
+
 		return k.All(), nil
 	}
+
 	if strings.HasSuffix(s, ".json") {
 		var config map[string]interface{}
 
@@ -129,8 +133,10 @@ func getConfiguration(s string) (map[string]interface{}, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error parsing json: %v", err)
 		}
+
 		return config, nil
 	}
+
 	return nil, fmt.Errorf("unknown config file type")
 }
 
@@ -139,6 +145,7 @@ func parsePackages(dirPath string, fset *token.FileSet) (map[string]*ast.Package
 	if err != nil {
 		return nil, err
 	}
+
 	return pkgs, nil
 }
 
@@ -146,12 +153,41 @@ func findEntrypoint(
 	entryPoint string,
 	packages map[string]*ast.Package,
 ) (*ast.FuncDecl, error) {
+	var receiver string
+	split := strings.Split(entryPoint, ".")
+	if len(split) == 2 {
+		receiver = split[0]
+		entryPoint = split[1]
+	}
 	for _, pkg := range packages {
 		for _, file := range pkg.Files {
 			for _, decl := range file.Decls {
 				if fn, ok := decl.(*ast.FuncDecl); ok {
 					if fn.Name.Name == entryPoint {
-						return fn, nil
+						if receiver != "" && fn.Recv != nil {
+							var foundReceiver string
+							switch fn.Recv.List[0].Type.(type) {
+							case *ast.StarExpr:
+								foundReceiver = fn.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
+							case *ast.Ident:
+								foundReceiver = fn.Recv.List[0].Type.(*ast.Ident).Name
+							default:
+								return nil, fmt.Errorf("unknown receiver type: %T", fn.Recv.List[0].Type)
+							}
+							if foundReceiver == receiver {
+								log.Printf(
+									"Found entrypoint with receiver %v in package %v",
+									entryPoint,
+									pkg.Name,
+								)
+								return fn, nil
+							} else {
+								continue
+							}
+						} else {
+							log.Printf("Found entrypoint %v in package %v", entryPoint, pkg.Name)
+							return fn, nil
+						}
 					}
 				}
 			}
@@ -197,7 +233,6 @@ func NewFlattener(
 	context := map[string]interface{}{
 		cfgParamName: conf,
 		"err":        nil,
-		"s":          map[string]interface{}{},
 	}
 
 	for k, v := range constants {
@@ -224,6 +259,7 @@ func (f *Flattener) inspect(
 	if n == nil {
 		return true
 	}
+
 	switch n := n.(type) {
 	case *ast.BlockStmt:
 		err := f.flattenBlockStmt(n)
@@ -232,6 +268,7 @@ func (f *Flattener) inspect(
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -239,21 +276,30 @@ func (f *Flattener) flattenBlockStmt(
 	blockStmt *ast.BlockStmt,
 ) error {
 	newList := []ast.Stmt{}
+
 	for _, stmt := range blockStmt.List {
 		switch stmt := stmt.(type) {
 		case *ast.AssignStmt:
 			var buf bytes.Buffer
+
 			fset := token.NewFileSet()
 			printer.Fprint(&buf, fset, stmt.Rhs[0])
+
 			eval := goval.NewEvaluator()
 			result, _ := eval.Evaluate(evaluator.Prepare(buf.String()), f.ctx, evaluator.Funcs)
-			f.fillCtxWithResult(stmt.Lhs[0], result)
+
+			err := f.fillCtxWithResult(stmt.Lhs[0], result)
+			if err != nil {
+				return fmt.Errorf("error filling context with result: %v", err)
+			}
+
 			newList = append(newList, stmt)
 		case *ast.IfStmt:
 			res, err := f.flattenIfStmt(stmt)
 			if err != nil {
 				return fmt.Errorf("error flattening if statement: %v", err)
 			}
+
 			if res != nil {
 				newList = append(newList, res...)
 			}
@@ -262,6 +308,7 @@ func (f *Flattener) flattenBlockStmt(
 			if err != nil {
 				return fmt.Errorf("error flattening switch statement: %v", err)
 			}
+
 			if res != nil {
 				newList = append(newList, res...)
 			}
@@ -269,37 +316,52 @@ func (f *Flattener) flattenBlockStmt(
 			newList = append(newList, stmt)
 		}
 	}
+
 	blockStmt.List = newList
+
 	return nil
 }
 
 func (f *Flattener) fillCtxWithResult(
 	lhs ast.Expr,
 	result interface{},
-) {
+) error {
 	switch lhs := lhs.(type) {
 	case *ast.Ident:
 		f.ctx[lhs.Name] = result
-		return
+		return nil
 	case *ast.SelectorExpr:
-		f.ctx[lhs.X.(*ast.Ident).Name].(map[string]interface{})[lhs.Sel.Name] = result
-		return
+		name := lhs.X.(*ast.Ident).Name
+		ctxEntry, ok := f.ctx[name]
+
+		if !ok {
+			f.ctx[name] = map[string]interface{}{}
+			ctxEntry = f.ctx[name]
+		}
+
+		ctxEntry.(map[string]interface{})[lhs.Sel.Name] = result
+
+		return nil
 	default:
-		panic("Unknown type in fillCtxWithResult")
+		return fmt.Errorf("unknown lhs type: %T", lhs)
 	}
 }
 
 func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 	ast.Inspect(ifStmt.Cond, f.fillCtxWithNil)
+
 	var buf bytes.Buffer
+
 	fset := token.NewFileSet()
 	printer.Fprint(&buf, fset, ifStmt.Cond)
+
 	eval := goval.NewEvaluator()
+
 	result, err := eval.Evaluate(buf.String(), f.ctx, evaluator.Funcs)
 	if err != nil {
 		// TODO this is hack to make function call on receiver work
 		if strings.HasPrefix(buf.String(), f.selector+".") {
-			result = false
+			result = true
 		} else {
 			return nil, fmt.Errorf("error evaluating if statement: %v", err)
 		}
@@ -308,6 +370,7 @@ func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 	if result.(bool) {
 		return f.flattenListStatements(ifStmt.Body.List)
 	}
+
 	if ifStmt.Else != nil {
 		switch elseStmt := ifStmt.Else.(type) {
 		case *ast.IfStmt:
@@ -318,6 +381,7 @@ func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 			return nil, errors.New("Unknown else statement")
 		}
 	}
+
 	return nil, nil
 }
 
@@ -327,6 +391,7 @@ func (f *Flattener) fillCtxWithNil(
 	if n == nil {
 		return true
 	}
+
 	switch n := n.(type) {
 	case *ast.SelectorExpr:
 		switch n.X.(type) {
@@ -335,59 +400,71 @@ func (f *Flattener) fillCtxWithNil(
 			if selector != f.selector {
 				return true
 			}
+
 			m, ok := f.ctx[selector]
 			if !ok {
 				return true
 			}
+
 			switch m := m.(type) {
 			case map[string]interface{}:
 				m[n.Sel.Name] = nil
-			default:
-				panic("Unknown type in fillCtxWithNil")
 			}
 		}
 	}
+
 	return true
 }
 
 func (f *Flattener) flattenSwitchStmt(switchStmt *ast.SwitchStmt) ([]ast.Stmt, error) {
 	var buf bytes.Buffer
+
 	err := printer.Fprint(&buf, token.NewFileSet(), switchStmt.Tag)
 	if err != nil {
 		return nil, err
 	}
+
 	left := buf.String()
+
 	for _, stmt := range switchStmt.Body.List {
 		caseStmt := stmt.(*ast.CaseClause)
 		if len(caseStmt.List) == 0 {
 			return caseStmt.Body, nil
 		}
+
 		for _, expr := range caseStmt.List {
 			buf.Reset()
+
 			err := printer.Fprint(&buf, token.NewFileSet(), expr)
 			if err != nil {
 				return nil, err
 			}
+
 			right := buf.String()
 			evaluator := goval.NewEvaluator()
+
 			result, err := evaluator.Evaluate(left+" == "+right, f.ctx, nil)
 			if err != nil {
 				return nil, err
 			}
+
 			if result.(bool) {
 				body, err := f.flattenListStatements(caseStmt.Body)
 				if err != nil {
 					return nil, err
 				}
+
 				return body, nil
 			}
 		}
 	}
+
 	return nil, nil
 }
 
 func (f *Flattener) flattenListStatements(list []ast.Stmt) ([]ast.Stmt, error) {
 	newList := []ast.Stmt{}
+
 	for _, stmt := range list {
 		switch stmt := stmt.(type) {
 		case *ast.IfStmt:
@@ -395,6 +472,7 @@ func (f *Flattener) flattenListStatements(list []ast.Stmt) ([]ast.Stmt, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			if res != nil {
 				newList = append(newList, res...)
 			}
@@ -403,6 +481,7 @@ func (f *Flattener) flattenListStatements(list []ast.Stmt) ([]ast.Stmt, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			if res != nil {
 				newList = append(newList, res...)
 			}
@@ -410,5 +489,6 @@ func (f *Flattener) flattenListStatements(list []ast.Stmt) ([]ast.Stmt, error) {
 			newList = append(newList, stmt)
 		}
 	}
+
 	return newList, nil
 }

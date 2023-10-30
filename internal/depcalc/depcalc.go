@@ -47,14 +47,22 @@ func Depcalc(entryPoint, path string) (string, error) {
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch t := node.(type) {
 				case *ast.FuncDecl:
-					if t.Name.Name != entryPoint {
-						fnMap[t.Name.Name] = t
+					var fnIdent string
+					fnIdent, err = functionIdentifier(t)
+					if err != nil {
+						return false
+					}
+					if fnIdent != entryPoint {
+						fnMap[fnIdent] = t
 						return true
 					}
 					start = t
 				}
 				return true
 			})
+			if err != nil {
+				return "", fmt.Errorf("failed to inspect file: %w", err)
+			}
 		}
 
 		e := evaluator.NewEvaluator(fnMap, c)
@@ -86,4 +94,22 @@ func printDep(dep deptree.Dependency, indent int) {
 	for _, dep := range dep.Deps {
 		printDep(dep, indent+1)
 	}
+}
+
+func functionIdentifier(fn *ast.FuncDecl) (string, error) {
+	var receiver string
+	if fn.Recv != nil {
+		switch fn.Recv.List[0].Type.(type) {
+		case *ast.StarExpr:
+			receiver = fn.Recv.List[0].Type.(*ast.StarExpr).X.(*ast.Ident).Name
+		case *ast.Ident:
+			receiver = fn.Recv.List[0].Type.(*ast.Ident).Name
+		default:
+			return "", fmt.Errorf("unknown receiver type: %T", fn.Recv.List[0].Type)
+		}
+	}
+	if receiver == "" {
+		return fn.Name.Name, nil
+	}
+	return fmt.Sprintf("%s.%s", receiver, fn.Name.Name), nil
 }

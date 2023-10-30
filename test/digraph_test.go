@@ -31,21 +31,21 @@ var test3 embed.FS
 
 func TestDigraph(t *testing.T) {
 	tests := []Test{
-		// {
-		// 	name:       "test1",
-		// 	entrypoint: "Build",
-		// 	fs:         test1,
-		// 	path:       "modules/test1/",
-		// },
-		// {
-		// 	name:       "test_set_build",
-		// 	entrypoint: "Build",
-		// 	fs:         test2,
-		// 	path:       "modules/test_set/",
-		// },
+		{
+			name:       "test1",
+			entrypoint: "Build",
+			fs:         test1,
+			path:       "modules/test1/",
+		},
+		{
+			name:       "test_set_build",
+			entrypoint: "Set.Build",
+			fs:         test2,
+			path:       "modules/test_set/",
+		},
 		{
 			name:       "test_variables",
-			entrypoint: "Build",
+			entrypoint: "Set.Build",
 			fs:         test3,
 			path:       "modules/test_var/",
 		},

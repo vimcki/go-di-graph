@@ -57,6 +57,12 @@ func NewEvaluator(fnMap map[string]*ast.FuncDecl, c map[string]interface{}) *Eva
 }
 
 func (e *Evaluator) getFuncNode(name string) (*ast.FuncDecl, error) {
+	for key, node := range e.fnMap {
+		split := strings.Split(key, ".")
+		if len(split) > 1 && split[1] == name {
+			return node, nil
+		}
+	}
 	node, ok := e.fnMap[name]
 	if !ok {
 		return nil, errors.New("unknown function: " + name)
@@ -97,6 +103,10 @@ func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 }
 
 func (e *Evaluator) EvalFunc(fn *ast.FuncDecl) (dependency, error) {
+	if fn == nil {
+		return dependency{}, errors.New("function is nil")
+	}
+
 	if fn.Recv != nil {
 		e.currentReceiver = fn.Recv.List[0].Names[0].Name
 	}
@@ -129,6 +139,8 @@ func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
 	case *ast.FuncLit:
 		return e.evalFuncLit(t)
 	case *ast.UnaryExpr:
+		return e.evalExpr(t.X)
+	case *ast.StarExpr:
 		return e.evalExpr(t.X)
 	default:
 		return dependency{}, errors.New("unknown expr type in eval, " + reflect.TypeOf(t).String())

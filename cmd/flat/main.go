@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"log"
+	"os"
 
 	"github.com/vimcki/go-di-graph/internal/flatten"
 )
@@ -15,5 +17,9 @@ func main() {
 
 	flag.Parse()
 
-	flatten.Flatten(*basePath, *buildPackage, *flatPackage, *entryPoint, *config)
+	err := flatten.Flatten(*basePath, *buildPackage, *flatPackage, *entryPoint, *config)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 }
