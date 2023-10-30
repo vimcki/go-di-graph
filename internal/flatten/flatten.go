@@ -175,11 +175,6 @@ func findEntrypoint(
 								return nil, fmt.Errorf("unknown receiver type: %T", fn.Recv.List[0].Type)
 							}
 							if foundReceiver == receiver {
-								log.Printf(
-									"Found entrypoint with receiver %v in package %v",
-									entryPoint,
-									pkg.Name,
-								)
 								return fn, nil
 							} else {
 								continue
