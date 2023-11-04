@@ -243,6 +243,10 @@ func (d *Digraph) unpackBuildFS() error {
 			return nil
 		}
 
+		if path == "." {
+			return nil
+		}
+
 		if e.IsDir() {
 			return nil
 		}
