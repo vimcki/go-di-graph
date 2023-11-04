@@ -31,25 +31,34 @@ var test2 embed.FS
 //go:embed modules/test_var/build
 var test3 embed.FS
 
+//go:embed modules/nested_structs/build
+var test4 embed.FS
+
 func TestDigraph(t *testing.T) {
 	tests := []Test{
-		// {
-		// 	name:       "test1",
-		// 	entrypoint: "Build",
-		// 	fs:         test1,
-		// 	path:       "modules/test1/",
-		// },
-		// {
-		// 	name:       "test_set_build",
-		// 	entrypoint: "Set.Build",
-		// 	fs:         test2,
-		// 	path:       "modules/test_set/",
-		// },
+		{
+			name:       "test1",
+			entrypoint: "Build",
+			fs:         test1,
+			path:       "modules/test1/",
+		},
+		{
+			name:       "test_set_build",
+			entrypoint: "Set.Build",
+			fs:         test2,
+			path:       "modules/test_set/",
+		},
 		{
 			name:       "test_variables",
 			entrypoint: "Set.Build",
 			fs:         test3,
 			path:       "modules/test_var/",
+		},
+		{
+			name:       "test nested structs",
+			entrypoint: "Worker.Fill",
+			fs:         test4,
+			path:       "modules/nested_structs/",
 		},
 	}
 

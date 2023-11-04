@@ -8,16 +8,11 @@
           "name": "processor.New",
           "deps": [
             {
-              "name": "s.commonComponent",
+              "name": "common.NewComponent",
               "deps": [
                 {
-                  "name": "common.NewComponent",
-                  "deps": [
-                    {
-                      "name": "cfg.Addr",
-                      "value": "http://localhost:8080"
-                    }
-                  ]
+                  "name": "cfg.Addr",
+                  "value": "http://localhost:8080"
                 }
               ]
             }

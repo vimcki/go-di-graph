@@ -434,7 +434,7 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 
 				e.promoteReceiverEnv(evaluator)
 
-				dep.flatten = true
+				dep.flatten = false
 				return dep, nil
 			} else {
 				name = t.X.(*ast.Ident).Name + "." + fnName
@@ -634,7 +634,12 @@ func (e *Evaluator) setEnv(name string, dep dependency) {
 
 func (e *Evaluator) promoteReceiverEnv(eval *Evaluator) {
 	for k, v := range eval.receiverEnv {
-		e.env.dep["s."+k] = v
+		firstChar := rune(k[0])
+		if !unicode.IsUpper(firstChar) {
+			// this hides nodes in graph like b.component1
+			v.flatten = true
+		}
+		e.env.dep[e.currentReceiver+"."+k] = v
 		e.receiverEnv[k] = v
 	}
 }
