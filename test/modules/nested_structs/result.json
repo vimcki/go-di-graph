@@ -22,6 +22,19 @@
                   "name": "\"three\""
                 }
               ]
+            },
+            {
+              "name": "components.NewComp4",
+              "deps": [
+                {
+                  "name": "components.NewComp2",
+                  "deps": [
+                    {
+                      "name": "\"two\""
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }

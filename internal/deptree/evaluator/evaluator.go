@@ -109,6 +109,7 @@ func (e *Evaluator) EvalFunc(fn *ast.FuncDecl) (dependency, error) {
 
 	if fn.Recv != nil {
 		e.currentReceiver = fn.Recv.List[0].Names[0].Name
+		e.passReceiverToEnv(fn)
 	}
 	var deps dependency
 	var err error
@@ -479,12 +480,10 @@ func NewEvaluatorFrom(e *Evaluator, args map[string]dependency) *Evaluator {
 		dep[k] = v
 	}
 	return &Evaluator{
-		env: &Environment{
-			dep: dep,
-		},
+		env:           &Environment{dep: dep},
 		fnMap:         e.fnMap,
 		globals:       e.globals,
-		receiverEnv:   map[string]dependency{},
+		receiverEnv:   e.receiverEnv,
 		configVarName: e.configVarName,
 	}
 }
@@ -641,5 +640,11 @@ func (e *Evaluator) promoteReceiverEnv(eval *Evaluator) {
 		}
 		e.env.dep[e.currentReceiver+"."+k] = v
 		e.receiverEnv[k] = v
+	}
+}
+
+func (e *Evaluator) passReceiverToEnv(fn *ast.FuncDecl) {
+	for k, v := range e.receiverEnv {
+		e.env.dep[e.currentReceiver+"."+k] = v
 	}
 }
