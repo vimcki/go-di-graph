@@ -247,6 +247,10 @@ func (d *Digraph) unpackBuildFS() error {
 			return nil
 		}
 
+		if e == nil {
+			return fmt.Errorf("failed to get dir entry: %w", err)
+		}
+
 		if e.IsDir() {
 			return nil
 		}
