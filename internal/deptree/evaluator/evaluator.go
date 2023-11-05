@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -302,7 +301,6 @@ func (e *Evaluator) findSelectorDep(selector string) (dependency, bool) {
 	split := strings.Split(selector, ".")
 	for i := len(split); i >= 0; i-- {
 		part := strings.Join(split[:i], ".")
-		log.Printf("part: %s\n", part)
 		dep, ok := e.env.dep[part]
 		if ok {
 			return dependency{
