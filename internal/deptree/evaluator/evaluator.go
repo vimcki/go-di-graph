@@ -143,9 +143,28 @@ func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
 		return e.evalExpr(t.X)
 	case *ast.StarExpr:
 		return e.evalExpr(t.X)
+	case *ast.BinaryExpr:
+		return e.evalBinaryExpr(t)
 	default:
 		return dependency{}, errors.New("unknown expr type in eval, " + reflect.TypeOf(t).String())
 	}
+}
+
+func (e *Evaluator) evalBinaryExpr(expr *ast.BinaryExpr) (dependency, error) {
+	left, err := e.evalExpr(expr.X)
+	if err != nil {
+		return dependency{}, err
+	}
+	right, err := e.evalExpr(expr.Y)
+	if err != nil {
+		return dependency{}, err
+	}
+	return dependency{
+		name:    expr.Op.String(),
+		deps:    []dependency{left, right},
+		flatten: false,
+		created: "BinaryExpr",
+	}, nil
 }
 
 func (e *Evaluator) evalFuncLit(expr *ast.FuncLit) (dependency, error) {
