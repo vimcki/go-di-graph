@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -281,14 +282,9 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 
 	deps := []dependency{}
 
-	selectorDep, ok := e.env.dep[selector]
+	selectorDep, ok := e.findSelectorDep(selector)
 	if ok {
-		return dependency{
-			name:    selector,
-			deps:    []dependency{selectorDep},
-			created: "SelectorExpr selector dep",
-			flatten: true,
-		}, nil
+		return selectorDep, nil
 	}
 
 	if recDep != nil {
@@ -300,6 +296,24 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 		created: "SelectorExpr",
 		deps:    deps,
 	}, nil
+}
+
+func (e *Evaluator) findSelectorDep(selector string) (dependency, bool) {
+	split := strings.Split(selector, ".")
+	for i := len(split); i >= 0; i-- {
+		part := strings.Join(split[:i], ".")
+		log.Printf("part: %s\n", part)
+		dep, ok := e.env.dep[part]
+		if ok {
+			return dependency{
+				name:    selector,
+				deps:    []dependency{dep},
+				created: "SelectorExpr selector dep",
+				flatten: i == len(split),
+			}, true
+		}
+	}
+	return dependency{}, false
 }
 
 func findIdent(expr *ast.SelectorExpr) (string, error) {
@@ -556,9 +570,85 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 		return e.evalExpr(t.X)
 	case *ast.RangeStmt:
 		return e.evalRangeStmt(t)
+	case *ast.IfStmt:
+		return e.evalIfStmt(t)
 	default:
 		return dependency{}, errors.New("unknown statement type in eval, " + reflect.TypeOf(t).String())
 	}
+}
+
+func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
+	// we only support if xxx != nil or if xxx == nil
+	expr := stmt.Cond
+	switch t := expr.(type) {
+	case *ast.BinaryExpr:
+		var isEqual bool
+		switch t.Op.String() {
+		case "==":
+			isEqual = true
+		case "!=":
+			isEqual = false
+		default:
+			return dependency{}, errors.New(
+				"unknown binary expr type in eval if stmt, " + reflect.TypeOf(t).String(),
+			)
+		}
+		var left, right string
+		var err error
+		switch t.X.(type) {
+		case *ast.Ident:
+			left = t.X.(*ast.Ident).Name
+		case *ast.SelectorExpr:
+			left, _, err = e.evalSelectorRecursively(t.X.(*ast.SelectorExpr))
+			if err != nil {
+				return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
+			}
+		default:
+			return dependency{}, errors.New(
+				"unknown X type in evalIf, " + reflect.TypeOf(t.X).String(),
+			)
+		}
+		switch t.Y.(type) {
+		case *ast.Ident:
+			right = t.Y.(*ast.Ident).Name
+		case *ast.SelectorExpr:
+			right, _, err = e.evalSelectorRecursively(t.Y.(*ast.SelectorExpr))
+			if err != nil {
+				return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
+			}
+		default:
+			return dependency{}, errors.New(
+				"unknown Y type in evalIf, " + reflect.TypeOf(t.Y).String(),
+			)
+		}
+		if left != "nil" && right != "nil" {
+			return dependency{}, errors.New("if statement only supports nil checks")
+		}
+		var realSelector string
+		if left == "nil" {
+			realSelector = right
+		} else {
+			realSelector = left
+		}
+
+		_, ok := e.env.dep[realSelector]
+		if ok && !isEqual {
+			return e.evalBlockStmt(stmt.Body)
+		} else if !ok && isEqual {
+			return e.evalBlockStmt(stmt.Body)
+		} else {
+			if stmt.Else == nil {
+				return dependency{
+					flatten: true,
+					created: "IfStmt, return empty dep",
+				}, nil
+			}
+			return e.evalStatement(stmt.Else)
+		}
+	}
+	return dependency{}, errors.New(
+		"unknown if stmt type in eval, " + reflect.TypeOf(expr).String(),
+	)
 }
 
 func (e *Evaluator) evalDeclStmt(stmt *ast.DeclStmt) (dependency, error) {

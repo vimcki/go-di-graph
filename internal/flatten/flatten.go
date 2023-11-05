@@ -352,9 +352,10 @@ func (f *Flattener) flattenIfStmt(ifStmt *ast.IfStmt) ([]ast.Stmt, error) {
 
 	result, err := eval.Evaluate(buf.String(), f.ctx, evaluator.Funcs)
 	if err != nil {
-		// TODO this is hack to make function call on receiver work
 		if strings.HasPrefix(buf.String(), f.selector+".") {
-			result = true
+			// here we let the if statement be, because we don't have enough
+			// information to evaluate it
+			return []ast.Stmt{ifStmt}, nil
 		} else {
 			return nil, fmt.Errorf("error evaluating if statement: %v", err)
 		}
