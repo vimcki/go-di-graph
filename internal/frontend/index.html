@@ -109,7 +109,149 @@
 	</div>
 	<div class="flex-1 p-4 relative bg-gray-800">
 		<h3 class="text-xl font-semibold mb-2 text-blue-400">Graph Visualization</h3>
-		<div class="w-full h-full rounded-lg border border-gray-700 border-dashed"></div>
+		<div class="w-full h-full rounded-lg border border-gray-700 border-dashed" id="mountNode">
+		<script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.3.11/dist/g6.min.js"></script>
+		<script>
+	const data = {
+		// The array of nodes
+		nodes: [
+			{
+				id: 'node1', // String, unique and required
+				label: 'Source', // The label of the node
+			},
+			{
+				id: "node2",
+				label: 'Target\nasddsaidjsaidsajf',
+			},
+			{
+				id: 'node3',
+				label: 'ASDF',
+			}
+		],
+		// The array of edges
+		edges: [
+			// An edge links from node1 to node2
+			{
+				source: 'node1',
+				target: 'node2',
+			},
+			{
+				source: 'node2',
+				target: 'node3',
+			}
+		],
+	};
+
+	containerWidth = document.getElementById("mountNode").offsetWidth;
+	containerHeight = document.getElementById("mountNode").offsetHeight;
+	const graph = new G6.Graph({
+		container: 'mountNode',
+		width: containerWidth,
+		height: containerHeight,
+		fitView: true,
+		fitViewPadding: [20, 40, 50, 20],
+		defaultNode: {
+			type: 'rect',
+			size: [150, 60],
+			style: {
+				fill: '#9EC9FF',
+				stroke: '#5B8FF9',
+			},
+			labelCfg: {           // The configurations for the label
+				positions: 'center',// The relative position of the label
+				style: {            // The style properties of the label
+					fontSize: 16,     // The font size of the label
+				}
+			},
+			anchorPoints: [
+				[0,0.5],
+				[1,0.5],
+				[0.5,0],
+				[0.5,1],
+			],
+		},
+		defaultEdge: {
+			type: 'line',
+			style: {
+				stroke: '#F6BD16',
+				endArrow:true,
+			},
+		},
+		layout: {
+			type: 'dagre',
+		},
+		modes: {
+			default: ['drag-canvas', 'zoom-canvas', 'drag-node'],
+		},
+	});
+	graph.data(data); // Load the data defined in Step 2
+	graph.render(); // Render the graph
+
+	let toolboxElement; // Variable to hold the toolbox HTML element
+	let mouseOverToolbox = false; // Variable to hold the mouse over toolbox state
+
+graph.on('node:mouseenter', (e) => {
+  const node = e.item;
+  const model = node.getModel();
+
+		console.log(e);
+	x = e.clientX;
+	y = e.clientY;
+
+  toolboxElement = createToolbox(model, x, y);
+  document.body.appendChild(toolboxElement); // Append the toolbox to the document body
+});
+
+	graph.on('node:mouseleave', () => {
+		// Set a delay before hiding the toolbox
+		setTimeout(() => {
+			if (!mouseOverToolbox) {
+				if (toolboxElement && !mouseOverToolbox) {
+					document.body.removeChild(toolboxElement);
+				}
+			}
+		}, 50);
+
+	});
+
+	document.addEventListener('mouseover', (e) => {
+		if (toolboxElement && e.target === toolboxElement) {
+			mouseOverToolbox = true;
+		}
+	});
+
+	document.addEventListener('mouseout', (e) => {
+		if (toolboxElement && e.target === toolboxElement) {
+			mouseOverToolbox = false;
+		}
+	});
+
+	function createToolbox(model,x, y) {
+		console.log(model);
+		const toolbox = document.createElement('div');
+		toolbox.innerHTML = `
+<div class="toolbox">
+	<button onclick="handleToolClick('${model.id}', 'tool1')">Tool 1</button>
+	<button onclick="handleToolClick('${model.id}', 'tool2')">Tool 2</button>
+</div>
+`;
+
+		// Add your toolbox styles
+		toolbox.style.position = 'absolute';
+		toolbox.style.top = `${y}px`;
+		toolbox.style.left = `${x}px`;
+
+		return toolbox;
+	}
+
+	// Function to handle toolbox button click
+	window.handleToolClick = function(nodeId, toolName) {
+		console.log(`Clicked ${toolName} for node ${nodeId}`);
+	};
+</script>
+		</div>
 	</div>
-</div></body>
+</div>
+
+</body>
 </html>
