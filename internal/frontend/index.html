@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title> Dependency Inversion Visualization</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+<div class="h-screen flex flex-col lg:flex-row bg-gray-900">
+	<div class="lg:w-1/3 p-4 flex flex-col h-full border-r border-gray-700">
+		<h2 class="text-2xl font-bold mb-4 text-green-400">Graph Exploration Tool</h2>
+		<div class="flex-1 overflow-auto">
+			<h3 class="text-xl font-semibold mb-2 text-blue-400">Node Controls</h3>
+			<button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500">
+				Focus Node
+			</button>
+			<div class="mb-2">
+				<h4 class="text-lg font-semibold mb-2 text-yellow-500">Filter Nodes</h4>
+				<button
+					type="button"
+					role="combobox"
+					aria-controls="radix-:R4sulllla:"
+					aria-expanded="false"
+					aria-autocomplete="none"
+					dir="ltr"
+					data-state="closed"
+					data-placeholder=""
+					class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<span style="pointer-events:none">Select nodes</span>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="h-4 w-4 opacity-50"
+						aria-hidden="true"
+					>
+						<path d="m6 9 6 6 6-6"></path>
+					</svg>
+				</button>
+			</div>
+			<h3 class="text-xl font-semibold mb-2 text-blue-400">Graph Roots</h3>
+			<div class="mb-2">
+				<button
+					type="button"
+					role="combobox"
+					aria-controls="radix-:R3culllla:"
+					aria-expanded="false"
+					aria-autocomplete="none"
+					dir="ltr"
+					data-state="closed"
+					data-placeholder=""
+					class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<span style="pointer-events:none">Select a root</span>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						class="h-4 w-4 opacity-50"
+						aria-hidden="true"
+					>
+						<path d="m6 9 6 6 6-6"></path>
+					</svg>
+				</button>
+				<button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mt-2 text-gray-300 border-gray-500">
+					Show All Roots
+				</button>
+			</div>
+		</div>
+		<div class="mt-4">
+			<h3 class="text-xl font-semibold mb-2 text-blue-400">Search</h3>
+			<div class="relative">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					class=" absolute left-2.5 top-2.5 h-4 w-4 text-gray-500"
+				>
+					<circle cx="11" cy="11" r="8"></circle>
+					<path d="m21 21-4.3-4.3"></path>
+				</svg>
+				<input
+					type="search"
+					class="flex h-10 rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full appearance-none pl-8 text-gray-300 bg-gray-800 border border-gray-700"
+					placeholder="Search nodes or edges..."
+				/>
+			</div>
+		</div>
+	</div>
+	<div class="flex-1 p-4 relative bg-gray-800">
+		<h3 class="text-xl font-semibold mb-2 text-blue-400">Graph Visualization</h3>
+		<div class="w-full h-full rounded-lg border border-gray-700 border-dashed"></div>
+	</div>
+</div></body>
+</html>

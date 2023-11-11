@@ -15,6 +15,7 @@ import (
 	"github.com/vimcki/go-di-graph/internal/encoder"
 	"github.com/vimcki/go-di-graph/internal/enhancer"
 	"github.com/vimcki/go-di-graph/internal/flatten"
+	"github.com/vimcki/go-di-graph/internal/frontend"
 )
 
 type Digraph struct {
@@ -43,7 +44,7 @@ func New(
 		marshaler:  json.Marshal,
 	}
 
-	graph.render = graph.renderD2
+	graph.render = graph.htmlRender
 
 	for _, option := range options {
 		option(graph)
@@ -62,6 +63,12 @@ func New(
 func WithCustomMarshal() func(*Digraph) {
 	return func(d *Digraph) {
 		d.marshaler = encoder.Marshal
+	}
+}
+
+func WithD2Render() func(*Digraph) {
+	return func(d *Digraph) {
+		d.render = d.renderD2
 	}
 }
 
@@ -230,6 +237,14 @@ func (d *Digraph) renderD2(tree []byte) ([]byte, string, error) {
 	}
 
 	return bytes, "image/svg+xml", nil
+}
+
+func (d *Digraph) htmlRender(tree []byte) ([]byte, string, error) {
+	bytes, err := frontend.Render(tree)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to render html: %w", err)
+	}
+	return bytes, "text/html", nil
 }
 
 func (d *Digraph) unpackBuildFS() error {
