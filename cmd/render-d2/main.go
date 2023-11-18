@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vimcki/go-di-graph/internal/d2"
+	"github.com/vimcki/go-di-graph/internal/frontend/d2"
 )
 
 func main() {

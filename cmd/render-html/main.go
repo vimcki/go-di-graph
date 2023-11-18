@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vimcki/go-di-graph/internal/frontend"
+	jointjs "github.com/vimcki/go-di-graph/internal/frontend/jointjs"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	result, err := frontend.Render(data)
+	result, err := jointjs.Render(data)
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)

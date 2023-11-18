@@ -28,7 +28,10 @@ func Render(graph string) ([]byte, error) {
 
 	rootID := 1
 
-	fillHashes(&root)
+	err := fillHashes(&root)
+	if err != nil {
+		return nil, fmt.Errorf("filling hashes error, %w", err)
+	}
 
 	fillIDs(&root, &rootID, make(map[string]int))
 
@@ -92,22 +95,6 @@ func filterDuplicates(result *[]string) {
 		}
 	}
 	*result = filtered
-}
-
-func in(list []string, elem string) bool {
-	for _, e := range list {
-		if e == elem {
-			return true
-		}
-	}
-	return false
-}
-
-func isLiteral(x string) bool {
-	if strings.HasPrefix(x, "\"") && strings.HasSuffix(x, "\"") {
-		return true
-	}
-	return false
 }
 
 func fillHashes(dep *dependency) error {
