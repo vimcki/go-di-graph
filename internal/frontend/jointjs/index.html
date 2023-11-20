@@ -260,23 +260,6 @@ async function main(){
 
 	await elk.layout(g, opts);
 
-	function direction(point1, point2){
-		if (point1.x == point2.x) {
-			if (point1.y < point2.y) {
-				return [0, 1]
-			} else {
-				return [0, -1]
-			}
-		} else {
-			if (point1.x < point2.x) {
-				return [1, 0]
-			} else {
-				return [-1, 0]
-			}
-		}
-		throw new Error('direction not found')
-	}
-
 	function createJointGraph() {
 		id2node = {}
 
@@ -287,11 +270,11 @@ async function main(){
 			rect.position(node.x, node.y);
 			rect.attr({
 				body: {
-					fill: 'blue'
+					fill: '#051015',
 				},
 				label: {
 					text: node.label,
-					fill: 'white'
+					fill: '#d1d5db',
 				}
 			});
 			rect.addTo(graph);
@@ -310,17 +293,7 @@ async function main(){
 				});
 			}
 
-
-			const [secondLast, last] = points.slice(-2);
-			const [directionX, directionY] = direction(secondLast, last);
-
 			points.pop();
-
-			// move edge last point so that arrows draw correctly
-			points.push({
-				x: last.x - directionX,
-				y: last.y - directionY * 10
-			});
 
 			link = new joint.shapes.standard.Link();
 			const linkArgs =  {
@@ -329,12 +302,21 @@ async function main(){
 					args: {
 						sticky: true,
 					}
+				},
+				anchor: {
+					name: 'perpendicular',
+					args: {
+						padding: 10,
+					}
 				}
 			}
 
+			const target = id2node[e.targets[0]];
+
 			link.source(id2node[e.sources[0]], linkArgs);
-			link.target(id2node[e.targets[0]], linkArgs);
+			link.target(target, linkArgs);
 			link.vertices(points);
+			link.attr('line/stroke', '#eab308');
 			link.addTo(graph);
 		});
 	}
