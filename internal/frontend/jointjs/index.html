@@ -333,14 +333,16 @@ async function main(){
 		width: '100%',
 		height: '100%',
 		gridSize: 1,
-		cellViewNamespace: namespace
+		cellViewNamespace: namespace,
+		//block dragging edges and nodes
+		interactive: false
 	});
 
   // Handle mousemove event for panning
   let isDragging = false;
   let dragStartX, dragStartY;
 
-	panAndZoom = svgPanZoom("#v-2")
+	panAndZoom = svgPanZoom("#v-2");
 
 	//Enable pan when a blank area is click (held) on
 paper.on('blank:pointerdown', function (evt, x, y) {
