@@ -151,6 +151,7 @@
 		<script>
 {{MD5}}
 const baseGraph = {{GRAPH_DATA}}
+
 async function renderGraph(treeGraph){
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
 
@@ -388,6 +389,7 @@ async function renderGraph(treeGraph){
 		panAndZoom.disablePan();
 	});
 	paper.on('element:mouseenter', function(e) {
+		highlight(e.model, graph);
 		var tooltip = $('#tooltip');
 		tooltip.text(e.model.tooltip);
 		tooltip.css({
@@ -397,8 +399,43 @@ async function renderGraph(treeGraph){
 	});
 
 	// Hide tooltip on mouseout
-	paper.on('element:mouseleave', function() {
+	paper.on('element:mouseleave', function(e) {
+		unhighlight(e.model, graph);
 		$('#tooltip').hide();
+	});
+}
+
+function highlight(node, graph){
+	//highlight node
+	node.attr({
+		body: {
+			fill: '#eab308',
+		},
+		label: {
+			fill: '#000000',
+		}
+	});
+
+	//highlight all edges from this node
+	graph.getConnectedLinks(node).forEach(function(link) {
+		link.attr('line/stroke', '#ffffff');
+	});
+}
+
+function unhighlight(node, graph){
+	//unhighlight node
+	node.attr({
+		body: {
+			fill: '#051015',
+		},
+		label: {
+			fill: '#d1d5db',
+		}
+	});
+
+	//unhighlight all edges from this node
+	graph.getConnectedLinks(node).forEach(function(link) {
+		link.attr('line/stroke', '#eab308');
 	});
 }
 
@@ -428,6 +465,21 @@ function fillOptionsList(){
 }
 
 fillOptionsList();
+
+function fillParent(node, parent){
+	if (parent) {
+		node.parent = parent;
+	}
+	if (node.deps) {
+		node.deps.forEach(d => {
+			fillParent(d, node);
+		});
+	}
+}
+parentedTree = JSON.parse(JSON.stringify(baseGraph));
+
+fillParent(parentedTree, null);
+console.log(parentedTree);
 
 renderGraph(baseGraph).catch(console.error);
 
