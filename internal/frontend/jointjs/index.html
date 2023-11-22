@@ -12,7 +12,10 @@
 		<h2 class="text-2xl font-bold mb-4 text-green-400">Component Exploration Tool</h2>
 		<div class="flex-1 overflow-auto">
 			<h3 class="text-xl font-semibold mb-2 text-blue-400">Node Controls</h3>
-			<button class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500">
+			<button 
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="focusNode()"
+			>
 				Focus Node
 			</button>
 			<div class="mb-2">
@@ -152,6 +155,7 @@
 {{MD5}}
 const baseGraph = {{GRAPH_DATA}}
 focused = null;
+var currentJointJSGraph = null;
 
 async function renderGraph(treeGraph){
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
@@ -229,7 +233,7 @@ async function renderGraph(treeGraph){
 	seen = {}
 	id2node = {}
 	var graph = new joint.dia.Graph({}, { cellNamespace: namespace });
-
+	currentJointJSGraph = graph;
 	const elk = new ELK();
 
 	var g = {
@@ -267,6 +271,7 @@ async function renderGraph(treeGraph){
 			height: dep.height,
 			label: dep.label,
 			tooltip: dep.tooltip,
+			name: dep.name,
 		})
 
 		id2node[myID] = dep;
@@ -299,6 +304,7 @@ async function renderGraph(treeGraph){
 			id2node[node.id] = rect;
 			rect.myID = node.id;
 			rect.tooltip = node.tooltip;
+			rect.name = node.name;
 			rect.resize(node.width, node.height);
 			rect.position(node.x, node.y);
 			rect.attr({
@@ -418,12 +424,36 @@ function focus(node) {
 	focused = node;
 	node.attr({
 		body: {
-			stroke: 'red', // Set the border color
+			stroke: '#F44336', // Set the border color
+		},
+	});
+}
+
+function multiFocus(node){
+	if (Array.isArray(focused)) {
+		focused.push(node);
+	} else{
+		focused = [node];
+	}
+	node.attr({
+		body: {
+			stroke: '#F44336', // Set the border color
 		},
 	});
 }
 
 function unfocus() {
+	if (Array.isArray(focused)) {
+		focused.forEach(function(node) {
+			node.attr({
+				body: {
+					stroke: 'none', // Set the border color
+				},
+			});
+		});
+		focused = null;
+		return;
+	}
 	focused.attr({
 		body: {
 			stroke: 'none', // Set the border color
@@ -494,20 +524,42 @@ function fillOptionsList(){
 
 fillOptionsList();
 
-function fillParent(node, parent){
-	if (parent) {
-		node.parent = parent;
-	}
-	if (node.deps) {
-		node.deps.forEach(d => {
-			fillParent(d, node);
-		});
-	}
-}
-parentedTree = JSON.parse(JSON.stringify(baseGraph));
 
-fillParent(parentedTree, null);
-console.log(parentedTree);
+function trimToUsed(current, target) {
+	if (current.name === target.name) {
+		return true;
+	}
+	if (current.deps) {
+		current.deps = current.deps.filter(d => trimToUsed(d, target));
+		if (current.deps.length === 0) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+	return false;
+}
+
+async function focusNode() {
+	if (!focused) {
+		return;
+	}
+	if (Array.isArray(focused)) {
+		return;
+	}
+
+
+	graph = JSON.parse(JSON.stringify(baseGraph));
+	trimToUsed(graph, focused);
+	await renderGraph(graph).catch(console.error);
+	elements = currentJointJSGraph.getElements();
+	const oldName = focused.name;
+	elements.forEach(function(element) {
+		if (element.name === oldName) {
+			multiFocus(element);
+		}
+	});
+}
 
 renderGraph(baseGraph).catch(console.error);
 
