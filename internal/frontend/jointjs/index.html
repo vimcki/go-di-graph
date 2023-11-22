@@ -151,6 +151,7 @@
 		<script>
 {{MD5}}
 const baseGraph = {{GRAPH_DATA}}
+focused = null;
 
 async function renderGraph(treeGraph){
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
@@ -296,6 +297,7 @@ async function renderGraph(treeGraph){
 		g.children.forEach(function(node) {
 			rect = new joint.shapes.standard.Rectangle();
 			id2node[node.id] = rect;
+			rect.myID = node.id;
 			rect.tooltip = node.tooltip;
 			rect.resize(node.width, node.height);
 			rect.position(node.x, node.y);
@@ -403,9 +405,38 @@ async function renderGraph(treeGraph){
 		unhighlight(e.model, graph);
 		$('#tooltip').hide();
 	});
+
+	// focus node on click
+	paper.on('element:pointerclick', function(e) {
+		if (focused) {
+			unfocus();
+		}
+		focus(e.model);
+	});
+}
+function focus(node) {
+	focused = node;
+	node.attr({
+		body: {
+			stroke: 'red', // Set the border color
+		},
+	});
+}
+
+function unfocus() {
+	focused.attr({
+		body: {
+			stroke: 'none', // Set the border color
+		},
+	});
+	focused = null;
 }
 
 function highlight(node, graph){
+	//highlight all edges from this node
+	graph.getConnectedLinks(node).forEach(function(link) {
+		link.attr('line/stroke', '#ffffff');
+	});
 	//highlight node
 	node.attr({
 		body: {
@@ -416,13 +447,14 @@ function highlight(node, graph){
 		}
 	});
 
-	//highlight all edges from this node
-	graph.getConnectedLinks(node).forEach(function(link) {
-		link.attr('line/stroke', '#ffffff');
-	});
 }
 
 function unhighlight(node, graph){
+	//unhighlight all edges from this node
+	graph.getConnectedLinks(node).forEach(function(link) {
+		link.attr('line/stroke', '#eab308');
+	});
+
 	//unhighlight node
 	node.attr({
 		body: {
@@ -433,10 +465,6 @@ function unhighlight(node, graph){
 		}
 	});
 
-	//unhighlight all edges from this node
-	graph.getConnectedLinks(node).forEach(function(link) {
-		link.attr('line/stroke', '#eab308');
-	});
 }
 
 function displayGraph(root) {
