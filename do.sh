@@ -28,5 +28,5 @@ go run cmd/enhancer/main.go \
 
 echo "---------------- render ----------------"
 
-go run cmd/render-d2/main.go --graph_path=projects/$PROJECT/enhanced.json > render.d2
-# go run cmd/render-html/main.go --graph_path=projects/$PROJECT/enhanced.json > render.html
+# go run cmd/render-d2/main.go --graph_path=projects/$PROJECT/enhanced.json > render.d2
+go run cmd/render-html/main.go --graph_path=projects/$PROJECT/enhanced.json > render.html

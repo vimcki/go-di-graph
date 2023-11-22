@@ -5,6 +5,16 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title> Dependency Inversion Visualization</title>
 		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+		.tooltip {
+      position: absolute;
+      background-color: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      display: none;
+    }
+		</style>
 </head>
 <body>
 <div class="h-screen flex flex-col lg:flex-row bg-gray-900">
@@ -120,8 +130,9 @@
 		<script src="https://cdn.rawgit.com/ariutta/svg-pan-zoom/master/dist/svg-pan-zoom.min.js"></script>
 
 		<script>
+{{MD5}}
+const graphData = {{GRAPH_DATA}}
 async function main(){
-	let graphData = {"name":"","deps":[{"name":"Processor","deps":[{"name":"measured.NewPreProcessor","deps":[{"name":"preprocessor.NewPreprocessor","deps":[{"name":"external.New","deps":[{"name":"external.ExtractAcIDForPX"},{"name":"external.FromPath"}]},{"name":"measured.NewProcessor","deps":[{"name":"cacheProcessor.New","deps":[{"name":"measured.NewSchemaRepo","deps":[{"name":"schema.NewRepo","deps":[{"name":"schemaClient.NewSchemaServiceClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]}]}]},{"name":"measured.NewTimeProcessor","deps":[{"name":"exampleevent.NewProcessor","deps":[{"name":"message.NewProcessor","deps":[{"name":"trigger.NewSelector","deps":[{"name":"measured.NewRecipeRepo","deps":[{"name":"cache.New","deps":[{"name":"recipe.NewRecipeClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]},{"name":"cfg.Meta.Application","value":"px"},{"name":"cfg.GetCacheRecipesTime"},{"name":"cfg.GetCacheRecipesCleanupTime"}]}]},{"name":"cfg.Meta.ScenarioType","value":"px"}]},{"name":"measured.NewSingleProcessor","deps":[{"name":"single.NewProcessor","deps":[{"name":"readerfactory.New","deps":[{"name":"","deps":[{"name":"\"MAP\"","deps":[{"name":"dict.NewReaderFactory"}]},{"name":"\"EVENT\"","deps":[{"name":"eventReader.NewReaderFactory"}]},{"name":"\"SEGMENT\"","deps":[{"name":"segmentReader.NewReaderFactory","deps":[{"name":"segment.NewSegmentServiceClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]},{"name":"dp.NewDigitalProfileServiceClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]}]}]},{"name":"\"PROFILE\"","deps":[{"name":"profile.NewReaderFactory","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]}]}]}]},{"name":"delaythrottle.NewRepository","deps":[{"name":"delayedData.NewRepository","deps":[{"name":"collection.NewProvider","deps":[{"name":"mongoPkg.NewClient","deps":[{"name":"strings.ReplaceAll","deps":[{"name":"cfg.Delay.Mongo.ConnectionString","value":"mongodb://srv_cdp:{{PASSWORD}}@mongo-45-1.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-2.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-3.cdp.dc-2.dev.dcwp.pl:27071/?replicaSet=cdp\u0026readPreference=primary\u0026serverSelectionTimeoutMS=5000\u0026connectTimeoutMS=10000\u0026authSource=admin\u0026authMechanism=SCRAM-SHA-256"},{"name":"cfg.Delay.Mongo.Password"}]},{"name":"cfg.GetMongoTimeout"}]},{"name":"cfg.Delay.Mongo.DB","value":"delay"},{"name":"cfg.Delay.Mongo.DelayedDataCollection","value":"data"},{"name":"cfg.GetMongoTimeout"}]},{"name":"collection.NewProvider","deps":[{"name":"mongoPkg.NewClient","deps":[{"name":"strings.ReplaceAll","deps":[{"name":"cfg.Delay.Mongo.ConnectionString","value":"mongodb://srv_cdp:{{PASSWORD}}@mongo-45-1.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-2.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-3.cdp.dc-2.dev.dcwp.pl:27071/?replicaSet=cdp\u0026readPreference=primary\u0026serverSelectionTimeoutMS=5000\u0026connectTimeoutMS=10000\u0026authSource=admin\u0026authMechanism=SCRAM-SHA-256"},{"name":"cfg.Delay.Mongo.Password"}]},{"name":"cfg.GetMongoTimeout"}]},{"name":"cfg.Delay.Mongo.DB","value":"delay"},{"name":"cfg.Delay.Mongo.RunTimeStateCollection","value":"runtime_state"},{"name":"cfg.GetMongoTimeout"}]},{"name":"time.Now"},{"name":"","deps":[{"name":"\"PROFILE\"","deps":[{"name":"profile.Deserialize"}]},{"name":"\"DICT\"","deps":[{"name":"dict.Deserialize"}]},{"name":"\"EVENT\"","deps":[{"name":"eventReader.Deserialize"}]},{"name":"\"SEGMENT\"","deps":[{"name":"segmentReader.Deserialize","deps":[{"name":"segment.NewSegmentServiceClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]},{"name":"dp.NewDigitalProfileServiceClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]}]}]}]},{"name":"","deps":[{"name":"\"PROFILE\"","deps":[{"name":"profile2.Deserialize","deps":[{"name":"measured.NewQueue","deps":[{"name":"throttle.NewQueue","deps":[{"name":"concurrent.NewQueue","deps":[{"name":"append","deps":[{"name":"rabbit.NewConnection","deps":[{"name":"","deps":[{"name":"Host","deps":[{"name":"strings.Split","deps":[{"name":"cfg.Rabbit.Host","value":"node-1.rabbitmq-1.dc-2.dev.dcwp.pl"}]}]},{"name":"User","deps":[{"name":"cfg.Rabbit.User","value":"cdp"}]},{"name":"Pass","deps":[{"name":"cfg.Rabbit.Password"}]},{"name":"VHost","deps":[{"name":"cfg.Rabbit.Vhost","value":"CDP"}]},{"name":"QueueName","deps":[{"name":"cfg.Rabbit.QueueName","value":"attrChange"}]},{"name":"DlqName","deps":[{"name":"cfg.Rabbit.DlqName","value":"attrChangeDLQ"}]},{"name":"ContentType"}]}]}]}]},{"name":"strings.Split","deps":[{"name":"cfg.AlwaysWriteACIDs","value":"257c138f-ac95-425e-b629-7e28720ba17e,3b75dd46-1dce-46eb-b701-af400da7583d,474283bf-baf0-436e-b7d4-1219c0d22319"}]}]}]}]}]},{"name":"\"CONSOLE\"","deps":[{"name":"consoleWriter.Deserialize"}]}]}]},{"name":"strings.Split","deps":[{"name":"cfg.AlwaysWriteACIDs","value":"257c138f-ac95-425e-b629-7e28720ba17e,3b75dd46-1dce-46eb-b701-af400da7583d,474283bf-baf0-436e-b7d4-1219c0d22319"}]}]},{"name":"cacheScenario.NewRepository","deps":[{"name":"collection.NewProvider","deps":[{"name":"mongoPkg.NewClient","deps":[{"name":"strings.ReplaceAll","deps":[{"name":"cfg.Delay.Mongo.ConnectionString","value":"mongodb://srv_cdp:{{PASSWORD}}@mongo-45-1.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-2.cdp.dc-2.dev.dcwp.pl:27071,mongo-45-3.cdp.dc-2.dev.dcwp.pl:27071/?replicaSet=cdp\u0026readPreference=primary\u0026serverSelectionTimeoutMS=5000\u0026connectTimeoutMS=10000\u0026authSource=admin\u0026authMechanism=SCRAM-SHA-256"},{"name":"cfg.Delay.Mongo.Password"}]},{"name":"cfg.GetMongoTimeout"}]},{"name":"cfg.Delay.Mongo.DB","value":"delay"},{"name":"cfg.Delay.Mongo.RecipeCollection","value":"recipes"},{"name":"cfg.GetMongoTimeout"}]}]}]}]},{"name":"writerfactory.New","deps":[{"name":"","deps":[{"name":"\"CONSOLE\"","deps":[{"name":"consoleWriter.NewWriterFactory"}]},{"name":"\"PROFILE\"","deps":[{"name":"profile2.NewWriterFactory","deps":[{"name":"measured.NewQueue","deps":[{"name":"throttle.NewQueue","deps":[{"name":"concurrent.NewQueue","deps":[{"name":"append","deps":[{"name":"rabbit.NewConnection","deps":[{"name":"","deps":[{"name":"Host","deps":[{"name":"strings.Split","deps":[{"name":"cfg.Rabbit.Host","value":"node-1.rabbitmq-1.dc-2.dev.dcwp.pl"}]}]},{"name":"User","deps":[{"name":"cfg.Rabbit.User","value":"cdp"}]},{"name":"Pass","deps":[{"name":"cfg.Rabbit.Password"}]},{"name":"VHost","deps":[{"name":"cfg.Rabbit.Vhost","value":"CDP"}]},{"name":"QueueName","deps":[{"name":"cfg.Rabbit.QueueName","value":"attrChange"}]},{"name":"DlqName","deps":[{"name":"cfg.Rabbit.DlqName","value":"attrChangeDLQ"}]},{"name":"ContentType"}]}]}]}]},{"name":"strings.Split","deps":[{"name":"cfg.AlwaysWriteACIDs","value":"257c138f-ac95-425e-b629-7e28720ba17e,3b75dd46-1dce-46eb-b701-af400da7583d,474283bf-baf0-436e-b7d4-1219c0d22319"}]}]}]}]}]}]}]}]}]}]},{"name":"cfg.GetCacheCdpIDsTime"},{"name":"cfg.GetCacheCdpIDsCleanupTime"}]}]}]}]}]},{"name":"Closer","deps":[{"name":"append","deps":[{"name":"append","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]},{"name":"measured.NewQueue","deps":[{"name":"throttle.NewQueue","deps":[{"name":"concurrent.NewQueue","deps":[{"name":"append","deps":[{"name":"rabbit.NewConnection","deps":[{"name":"","deps":[{"name":"Host","deps":[{"name":"strings.Split","deps":[{"name":"cfg.Rabbit.Host","value":"node-1.rabbitmq-1.dc-2.dev.dcwp.pl"}]}]},{"name":"User","deps":[{"name":"cfg.Rabbit.User","value":"cdp"}]},{"name":"Pass","deps":[{"name":"cfg.Rabbit.Password"}]},{"name":"VHost","deps":[{"name":"cfg.Rabbit.Vhost","value":"CDP"}]},{"name":"QueueName","deps":[{"name":"cfg.Rabbit.QueueName","value":"attrChange"}]},{"name":"DlqName","deps":[{"name":"cfg.Rabbit.DlqName","value":"attrChangeDLQ"}]},{"name":"ContentType"}]}]}]}]},{"name":"strings.Split","deps":[{"name":"cfg.AlwaysWriteACIDs","value":"257c138f-ac95-425e-b629-7e28720ba17e,3b75dd46-1dce-46eb-b701-af400da7583d,474283bf-baf0-436e-b7d4-1219c0d22319"}]}]}]}]}]},{"name":"ExampleEvent","deps":[{"name":"exampleEventProcessor.Event"}]},{"name":"RecipeRepository","deps":[{"name":"measured.NewRecipeRepo","deps":[{"name":"cache.New","deps":[{"name":"recipe.NewRecipeClient","deps":[{"name":"grpc.Dial","deps":[{"name":"cfg.CoreAPI.Host","value":"core-api.default.svc.cluster.local:9000"},{"name":"grpc.WithTransportCredentials","deps":[{"name":"insecure.NewCredentials"}]},{"name":"grpc.WithUnaryInterceptor","deps":[{"name":"prometheus.UnaryInterceptor"}]}]}]},{"name":"cfg.Meta.Application","value":"px"},{"name":"cfg.GetCacheRecipesTime"},{"name":"cfg.GetCacheRecipesCleanupTime"}]}]}]}]};
 	let elements = [];
 
 	let id = 0;
@@ -134,8 +145,16 @@ async function main(){
       // Set the font on the context
       context.font = font;
 
-      // Measure the text
-      var width = context.measureText(text).width;
+			//split text into lines and get the longest one
+			let lines = text.split("\n");
+			let longestLine = "";
+			for(let i = 0; i < lines.length; i++){
+				if(lines[i].length > longestLine.length){
+					longestLine = lines[i];
+				}
+			}
+      var width = context.measureText(longestLine).width;
+				
 
       // Get the font metrics
       var metrics = context.measureText(text);
@@ -145,7 +164,6 @@ async function main(){
       return { width: width, height: height };
     }
 
-	var MD5 = function(d){var r = M(V(Y(X(d),8*d.length)));return r.toLowerCase()};function M(d){for(var _,m="0123456789ABCDEF",f="",r=0;r<d.length;r++)_=d.charCodeAt(r),f+=m.charAt(_>>>4&15)+m.charAt(15&_);return f}function X(d){for(var _=Array(d.length>>2),m=0;m<_.length;m++)_[m]=0;for(m=0;m<8*d.length;m+=8)_[m>>5]|=(255&d.charCodeAt(m/8))<<m%32;return _}function V(d){for(var _="",m=0;m<32*d.length;m+=8)_+=String.fromCharCode(d[m>>5]>>>m%32&255);return _}function Y(d,_){d[_>>5]|=128<<_%32,d[14+(_+64>>>9<<4)]=_;for(var m=1732584193,f=-271733879,r=-1732584194,i=271733878,n=0;n<d.length;n+=16){var h=m,t=f,g=r,e=i;f=md5_ii(f=md5_ii(f=md5_ii(f=md5_ii(f=md5_hh(f=md5_hh(f=md5_hh(f=md5_hh(f=md5_gg(f=md5_gg(f=md5_gg(f=md5_gg(f=md5_ff(f=md5_ff(f=md5_ff(f=md5_ff(f,r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+0],7,-680876936),f,r,d[n+1],12,-389564586),m,f,d[n+2],17,606105819),i,m,d[n+3],22,-1044525330),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+4],7,-176418897),f,r,d[n+5],12,1200080426),m,f,d[n+6],17,-1473231341),i,m,d[n+7],22,-45705983),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+8],7,1770035416),f,r,d[n+9],12,-1958414417),m,f,d[n+10],17,-42063),i,m,d[n+11],22,-1990404162),r=md5_ff(r,i=md5_ff(i,m=md5_ff(m,f,r,i,d[n+12],7,1804603682),f,r,d[n+13],12,-40341101),m,f,d[n+14],17,-1502002290),i,m,d[n+15],22,1236535329),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+1],5,-165796510),f,r,d[n+6],9,-1069501632),m,f,d[n+11],14,643717713),i,m,d[n+0],20,-373897302),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+5],5,-701558691),f,r,d[n+10],9,38016083),m,f,d[n+15],14,-660478335),i,m,d[n+4],20,-405537848),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+9],5,568446438),f,r,d[n+14],9,-1019803690),m,f,d[n+3],14,-187363961),i,m,d[n+8],20,1163531501),r=md5_gg(r,i=md5_gg(i,m=md5_gg(m,f,r,i,d[n+13],5,-1444681467),f,r,d[n+2],9,-51403784),m,f,d[n+7],14,1735328473),i,m,d[n+12],20,-1926607734),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+5],4,-378558),f,r,d[n+8],11,-2022574463),m,f,d[n+11],16,1839030562),i,m,d[n+14],23,-35309556),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+1],4,-1530992060),f,r,d[n+4],11,1272893353),m,f,d[n+7],16,-155497632),i,m,d[n+10],23,-1094730640),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+13],4,681279174),f,r,d[n+0],11,-358537222),m,f,d[n+3],16,-722521979),i,m,d[n+6],23,76029189),r=md5_hh(r,i=md5_hh(i,m=md5_hh(m,f,r,i,d[n+9],4,-640364487),f,r,d[n+12],11,-421815835),m,f,d[n+15],16,530742520),i,m,d[n+2],23,-995338651),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+0],6,-198630844),f,r,d[n+7],10,1126891415),m,f,d[n+14],15,-1416354905),i,m,d[n+5],21,-57434055),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+12],6,1700485571),f,r,d[n+3],10,-1894986606),m,f,d[n+10],15,-1051523),i,m,d[n+1],21,-2054922799),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+8],6,1873313359),f,r,d[n+15],10,-30611744),m,f,d[n+6],15,-1560198380),i,m,d[n+13],21,1309151649),r=md5_ii(r,i=md5_ii(i,m=md5_ii(m,f,r,i,d[n+4],6,-145523070),f,r,d[n+11],10,-1120210379),m,f,d[n+2],15,718787259),i,m,d[n+9],21,-343485551),m=safe_add(m,h),f=safe_add(f,t),r=safe_add(r,g),i=safe_add(i,e)}return Array(m,f,r,i)}function md5_cmn(d,_,m,f,r,i){return safe_add(bit_rol(safe_add(safe_add(_,d),safe_add(f,i)),r),m)}function md5_ff(d,_,m,f,r,i,n){return md5_cmn(_&m|~_&f,d,_,r,i,n)}function md5_gg(d,_,m,f,r,i,n){return md5_cmn(_&f|m&~f,d,_,r,i,n)}function md5_hh(d,_,m,f,r,i,n){return md5_cmn(_^m^f,d,_,r,i,n)}function md5_ii(d,_,m,f,r,i,n){return md5_cmn(m^(_|~f),d,_,r,i,n)}function safe_add(d,_){var m=(65535&d)+(65535&_);return(d>>16)+(_>>16)+(m>>16)<<16|65535&m}function bit_rol(d,_){return d<<_|d>>>32-_}
 
 	function fillHashes(node){
 		stringRep = JSON.stringify(node)
@@ -158,14 +176,24 @@ async function main(){
 		}
 	}
 
+
 	fillHashes(graphData)
 
 	function fillSizes(node){
-		const text = node.name + (node.value ? ` (${node.value})` : '')
-		const {width, height} = getTextDimensions(text, '14px DejaVu Sans');
+		const text = node.name + (node.value ? `\n(${node.value})` : '')
+		// cut all lines so they are max 30 chars long
+		const lines = text.split("\n");
+		for(let i = 0; i < lines.length; i++){
+			if(lines[i].length > 30){
+				lines[i] = lines[i].substring(0, 30) + "...";
+			}
+		}
+		cut = lines.join("\n");
+		const {width, height} = getTextDimensions(cut, '14px DejaVu Sans');
 		node.width = width + 20;
 		node.height = height + 20;
-		node.label = text
+		node.label = cut
+		node.tooltip = text
 		if (node.deps) {
 			node.deps.forEach(d => {
 				fillSizes(d);
@@ -195,7 +223,6 @@ async function main(){
 		seenNode = seen[dep.md5];
 		if (seenNode) {
 			if (parentID) {
-				console.log('seen', dep.name, 'from', parentID, 'to', seenNode.id)
 				parent = id2node[parentID];
 				if (parent) {
 					g.edges.push({ id: `${id}`, sources: [ parent.id ], targets: [ seenNode.id ] })
@@ -215,7 +242,8 @@ async function main(){
 			id: myID, 
 			width: dep.width, 
 			height: dep.height,
-			label: dep.label
+			label: dep.label,
+			tooltip: dep.tooltip,
 		})
 
 		id2node[myID] = dep;
@@ -246,6 +274,7 @@ async function main(){
 		g.children.forEach(function(node) {
 			rect = new joint.shapes.standard.Rectangle();
 			id2node[node.id] = rect;
+			rect.tooltip = node.tooltip;
 			rect.resize(node.width, node.height);
 			rect.position(node.x, node.y);
 			rect.attr({
@@ -325,16 +354,27 @@ async function main(){
 	panAndZoom = svgPanZoom("#v-2");
 
 	//Enable pan when a blank area is click (held) on
-paper.on('blank:pointerdown', function (evt, x, y) {
-    panAndZoom.enablePan();
-    //console.log(x + ' ' + y);
-});
+	paper.on('blank:pointerdown', function (evt, x, y) {
+		panAndZoom.enablePan();
+	});
 
-//Disable pan when the mouse button is released
-paper.on('cell:pointerup blank:pointerup', function(cellView, event) {
-  panAndZoom.disablePan();
-});
+	//Disable pan when the mouse button is released
+	paper.on('cell:pointerup blank:pointerup', function(cellView, event) {
+		panAndZoom.disablePan();
+	});
+	paper.on('element:mouseenter', function(e) {
+		var tooltip = $('#tooltip');
+		tooltip.text(e.model.tooltip);
+		tooltip.css({
+			top: event.clientY + 10,
+			left: event.clientX + 10,
+			}).show();
+	});
 
+	// Hide tooltip on mouseout
+	paper.on('element:mouseleave', function() {
+		$('#tooltip').hide();
+	});
 }
 
 main().catch(console.error);
@@ -343,6 +383,7 @@ main().catch(console.error);
 		</div>
 	</div>
 </div>
+<div id="tooltip" class="tooltip absolute bg-white p-2 border rounded shadow-md">AAAAAAAAAAAAA</div>
 
 </body>
 </html>

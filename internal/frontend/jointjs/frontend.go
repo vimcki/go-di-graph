@@ -2,26 +2,18 @@ package jointjs
 
 import (
 	_ "embed"
-	"encoding/json"
-	"fmt"
+	"strings"
 )
 
 //go:embed index.html
 var htmlTemplate string
 
-type dependency struct {
-	ID    int
-	Hash  string
-	Name  string       `json:"name,omitempty"`
-	Deps  []dependency `json:"deps,omitempty"`
-	Value interface{}  `json:"value,omitempty"`
-}
+//go:embed md5.js
+var md5 string
 
 func Render(data []byte) ([]byte, error) {
-	var root dependency
-	if err := json.Unmarshal([]byte(data), &root); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal graph: %w", err)
-	}
+	filled := strings.ReplaceAll(htmlTemplate, "{{GRAPH_DATA}}", string(data))
+	filled = strings.ReplaceAll(filled, "{{MD5}}", md5)
 
-	return []byte(htmlTemplate), nil
+	return []byte(filled), nil
 }
