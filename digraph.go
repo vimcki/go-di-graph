@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/vimcki/go-di-graph/internal/d2"
 	"github.com/vimcki/go-di-graph/internal/depcalc"
 	"github.com/vimcki/go-di-graph/internal/encoder"
 	"github.com/vimcki/go-di-graph/internal/enhancer"
 	"github.com/vimcki/go-di-graph/internal/flatten"
-	"github.com/vimcki/go-di-graph/internal/frontend"
+	"github.com/vimcki/go-di-graph/internal/frontend/d2"
+	"github.com/vimcki/go-di-graph/internal/frontend/jointjs"
 )
 
 type Digraph struct {
@@ -240,7 +240,7 @@ func (d *Digraph) renderD2(tree []byte) ([]byte, string, error) {
 }
 
 func (d *Digraph) htmlRender(tree []byte) ([]byte, string, error) {
-	bytes, err := frontend.Render(tree)
+	bytes, err := jointjs.Render(tree)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to render html: %w", err)
 	}
