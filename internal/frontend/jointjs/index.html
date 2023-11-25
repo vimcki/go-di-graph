@@ -16,38 +16,41 @@
 			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
 			onclick="focusNode()"
 			>
-				Focus Node
+				Focus
+			</button>
+<button 
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="filterNode()"
+			>
+				Filter
 			</button>
 			<div class="mb-2">
 				<h4 class="text-lg font-semibold mb-2 text-yellow-500">Filter Nodes</h4>
-				<button
-					type="button"
-					role="combobox"
-					aria-controls="radix-:R4sulllla:"
-					aria-expanded="false"
-					aria-autocomplete="none"
-					dir="ltr"
-					data-state="closed"
-					data-placeholder=""
-					class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-				>
-					<span style="pointer-events:none">Select nodes</span>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="24"
-						height="24"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						class="h-4 w-4 opacity-50"
-						aria-hidden="true"
-					>
-						<path d="m6 9 6 6 6-6"></path>
-					</svg>
-				</button>
+				<ul id="filtered-list" class="text-gray-300 z-10 bg-gray-800 border border-gray-700 rounded-md shadow-lg py-1 mt-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm max-h-60 hidden">
+				</ul>
+
+				<input
+					id="filter-pattern"
+					type="text"
+					class="flex h-10 rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full appearance-none pl-8 text-gray-300 bg-gray-800 border border-gray-700"
+					placeholder="Pattern..."	
+				/>
+
+				<script>
+					document.getElementById('filter-pattern').addEventListener('keydown', function(event) {
+						if (event.key === 'Enter' || event.keyCode === 13) {
+							// Perform the action you want when Enter is pressed
+							handleFilterPattern();
+						}
+					});
+
+					function handleFilterPattern() {
+						element = document.getElementById('filter-pattern');
+						var userInput = element.value;
+						filterPattern(userInput);
+						element.value = '';
+					}
+				</script>
 			</div>
 			<h3 class="text-xl font-semibold mb-2 text-blue-400">Roots</h3>
 			<div class="mb-2">
@@ -156,9 +159,13 @@
 const baseGraph = {{GRAPH_DATA}}
 focused = null;
 var currentJointJSGraph = null;
+var currentGraph = baseGraph;
 
 async function renderGraph(treeGraph){
+	currentGraph = treeGraph;
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
+
+	removeFromGraph(treeGraph, filtered);
 
 	let elements = [];
 
@@ -420,6 +427,32 @@ async function renderGraph(treeGraph){
 		focus(e.model);
 	});
 }
+function matchTarget(node, target) {
+	matches = false
+	if (target.type === 'pattern') {
+		matches = node.name.includes(target.value);
+	} else if (target.type === 'node') {
+		matches = node.name === target.value;
+	} else {
+		console.log('unknown target type', target.type);
+	}
+	return matches;
+}
+
+function removeFromGraph(current, targets) {
+	if (current.deps) {
+		promotedDeps = [];
+		while (current.deps.find(d => targets.find(target => matchTarget(d, target)))) {
+			const dep = current.deps.find(d => targets.find(target => matchTarget(d, target)));
+			if (dep.deps)	promotedDeps.push(...dep.deps);
+			current.deps = current.deps.filter(d => d.name !== dep.name);
+		}
+		current.deps.push(...promotedDeps);
+		current.deps.forEach(d => removeFromGraph(d, targets));
+	}
+}
+
+
 function focus(node) {
 	focused = node;
 	node.attr({
@@ -538,6 +571,115 @@ function trimToUsed(current, target) {
 		}
 	}
 	return false;
+}
+
+filtered = [];
+
+function filterPattern(pattern) {
+	filtered.push({type:"pattern", value: pattern});
+	renderFiltered();
+	renderGraph(currentGraph).catch(console.error);
+}
+
+function filterNode() {
+	if (!focused) {
+		return;
+	}
+	if (Array.isArray(focused)) {
+		return;
+	}
+
+	filtered.push({type:"node", value: focused.name});
+	renderFiltered();
+	renderGraph(currentGraph).catch(console.error);
+	focused = null;
+}
+
+function unfilterNode(value) {
+	filtered = filtered.filter(n => n.value !== value);
+	renderFiltered();
+	renderGraph(currentGraph).catch(console.error);
+}
+
+function renderFiltered() {
+	const filteredList = document.getElementById('filtered-list');
+
+	if (filtered.length === 0) {
+		filteredList.style.display = 'none';
+	} else {
+		filteredList.style.display = 'block';
+	}
+
+	filteredList.innerHTML = '';
+	filtered.forEach(function(node) {
+		const li = document.createElement('li');
+		li.classList.add('flex', 'items-center', 'justify-between', 'px-3', 'py-2');
+
+		if (node.type === 'pattern') {
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+			svg.setAttribute('width', '24');
+			svg.setAttribute('height', '24');
+			svg.setAttribute('viewBox', '0 0 24 24');
+			svg.setAttribute('fill', 'none');
+			svg.setAttribute('stroke', 'currentColor');
+			svg.setAttribute('stroke-width', '2');
+			svg.setAttribute('stroke-linecap', 'round');
+			svg.setAttribute('stroke-linejoin', 'round');
+			svg.classList.add('h-4', 'w-4');
+			svg.setAttribute('aria-hidden', 'true');
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			path.setAttributeNS(null, "d", "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 16h-2v-2h2zm0-4h-2V7h2zm4-8h-8v2h2v6h-2v2h8v-2h-2v-6h2v-2z");
+			svg.appendChild(path);
+			li.appendChild(svg);
+		} else if (node.type === 'node') {
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+			svg.setAttribute('width', '24');
+			svg.setAttribute('height', '24');
+			svg.setAttribute('viewBox', '0 0 24 24');
+			svg.setAttribute('fill', 'none');
+			svg.setAttribute('stroke', 'currentColor');
+			svg.setAttribute('stroke-width', '2');
+			svg.setAttribute('stroke-linecap', 'round');
+			svg.setAttribute('stroke-linejoin', 'round');
+			svg.classList.add('h-4', 'w-4');
+			svg.setAttribute('aria-hidden', 'true');
+			const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+			path.setAttributeNS(null, "d", "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-1.69 0-3.26-.45-4.62-1.24.74-.89 1.89-2.55 2.33-5.18.09-.43.45-.76.89-.76.57 0 1.03.46 1.03 1.03 0 .22-.07.42-.18.59-.4.79-1.39 1.41-2.55 1.41-1.24 0-2.26-1.01-2.26-2.26 0-1.24 1.01-2.26 2.26-2.26s2.26 1.01 2.26 2.26c0 .57-.22 1.14-.6 1.56-.25.27-.56.46-.89.54 1.53.09 2.76 1.32 2.76 2.86 0 1.59-1.29 2.88-2.88 2.88z");
+			svg.appendChild(path);
+			li.appendChild(svg);
+		} else {
+			console.log('unknown node type', node.type);
+		}
+
+		const span = document.createElement('span');
+		span.classList.add('text-sm', 'font-medium');
+		span.textContent = node.value;
+		li.appendChild(span);
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.classList.add('inline-flex', 'items-center', 'justify-center', 'rounded-md', 'text-sm', 'font-medium', 'ring-offset-background', 'transition-colors', 'focus-visible:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-ring', 'focus-visible:ring-offset-2', 'disabled:pointer-events-none', 'disabled:opacity-50', 'border', 'bg-background', 'hover:bg-accent', 'hover:text-accent-foreground', 'h-6', 'px-2', 'py-1', 'text-gray-300', 'border-gray-500');
+		button.onclick = () => unfilterNode(node.value);
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+		svg.setAttribute('width', '24');
+		svg.setAttribute('height', '24');
+		svg.setAttribute('viewBox', '0 0 24 24');
+		svg.setAttribute('fill', 'none');
+		svg.setAttribute('stroke', 'currentColor');
+		svg.setAttribute('stroke-width', '2');
+		svg.setAttribute('stroke-linecap', 'round');
+		svg.setAttribute('stroke-linejoin', 'round');
+		svg.classList.add('h-4', 'w-4');
+		svg.setAttribute('aria-hidden', 'true');
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+		svg.appendChild(path);
+		button.appendChild(svg);
+		li.appendChild(button);
+		filteredList.appendChild(li);
+	});
 }
 
 async function focusNode() {
