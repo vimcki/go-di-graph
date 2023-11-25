@@ -24,8 +24,20 @@
 			>
 				Filter
 			</button>
+			<button
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="hideNode()"
+			>
+				Hide
+			</button>
+			<button
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="hideChildrenOfNode()"
+			>
+				Hide Children
+			</button>
 			<div class="mb-2">
-				<h4 class="text-lg font-semibold mb-2 text-yellow-500">Filter Nodes</h4>
+				<h4 class="text-lg font-semibold mb-2 text-yellow-500">Filters</h4>
 				<ul id="filtered-list" class="text-gray-300 z-10 bg-gray-800 border border-gray-700 rounded-md shadow-lg py-1 mt-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm max-h-60 hidden">
 				</ul>
 
@@ -52,6 +64,16 @@
 					}
 				</script>
 			</div>
+
+			<div id="hidden-container" class="hidden">
+			<h3 class="text-xl font-semibold mb-2 text-blue-400">Hidden</h3>
+			<ul id="hidden-list" class="text-gray-300 z-10 bg-gray-800 border border-gray-700 rounded-md shadow-lg py-1 mt-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm max-h-60">
+				<li class="flex items-center justify-between px-3 py-2">
+					<span class="text-sm font-medium">No nodes hidden</span>
+			</ul>
+			</div>
+
+
 			<h3 class="text-xl font-semibold mb-2 text-blue-400">Roots</h3>
 			<div class="mb-2">
 				<button
@@ -166,6 +188,7 @@ async function renderGraph(treeGraph){
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
 
 	removeFromGraph(treeGraph, filtered);
+	hideFromGraph(treeGraph, global.hidden);
 
 	let elements = [];
 
@@ -452,6 +475,13 @@ function removeFromGraph(current, targets) {
 	}
 }
 
+function hideFromGraph(current, targets) {
+	if (current.deps) {
+		current.deps = current.deps.filter(d => !targets.find(t => d.name === t));
+		current.deps.forEach(d => hideFromGraph(d, targets));
+	}
+}
+
 
 function focus(node) {
 	focused = node;
@@ -592,12 +622,45 @@ function filterNode() {
 	filtered.push({type:"node", value: focused.name});
 	renderFiltered();
 	renderGraph(currentGraph).catch(console.error);
-	focused = null;
+	unfocus();
 }
 
 function unfilterNode(value) {
 	filtered = filtered.filter(n => n.value !== value);
 	renderFiltered();
+	renderGraph(currentGraph).catch(console.error);
+}
+
+
+function renderHidden() {
+	const hiddenList = document.getElementById('hidden-list');
+	const hiddenContainer = document.getElementById('hidden-container');
+	if (global.hidden.length === 0) {
+		hiddenContainer.style.display = 'none';
+	} else {
+		hiddenContainer.style.display = 'block';
+	}
+	hiddenList.innerHTML = '';
+	global.hidden.forEach(function(value) {
+		const li = document.createElement('li');
+		li.classList.add('flex', 'items-center', 'justify-between', 'px-3', 'py-2');
+		const span = document.createElement('span');
+		span.classList.add('text-sm', 'font-medium');
+		span.textContent = value;
+		li.appendChild(span);
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.classList.add('inline-flex', 'items-center', 'justify-center', 'rounded-md', 'text-sm', 'font-medium', 'ring-offset-background', 'transition-colors', 'focus-visible:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-ring', 'focus-visible:ring-offset-2', 'disabled:pointer-events-none', 'disabled:opacity-50', 'border', 'bg-background', 'hover:bg-accent', 'hover:text-accent-foreground', 'h-6', 'px-2', 'text-gray-300', 'border-gray-500');
+		button.onclick = () => unhideNode(value);
+		button.appendChild(createXSvg());
+		li.appendChild(button);
+		hiddenList.appendChild(li);
+	});
+}
+
+function unhideNode(value) {
+	global.hidden = global.hidden.filter(n => n !== value);
+	renderHidden();
 	renderGraph(currentGraph).catch(console.error);
 }
 
@@ -661,25 +724,47 @@ function renderFiltered() {
 		button.type = 'button';
 		button.classList.add('inline-flex', 'items-center', 'justify-center', 'rounded-md', 'text-sm', 'font-medium', 'ring-offset-background', 'transition-colors', 'focus-visible:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-ring', 'focus-visible:ring-offset-2', 'disabled:pointer-events-none', 'disabled:opacity-50', 'border', 'bg-background', 'hover:bg-accent', 'hover:text-accent-foreground', 'h-6', 'px-2', 'py-1', 'text-gray-300', 'border-gray-500');
 		button.onclick = () => unfilterNode(node.value);
-		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-		svg.setAttribute('width', '24');
-		svg.setAttribute('height', '24');
-		svg.setAttribute('viewBox', '0 0 24 24');
-		svg.setAttribute('fill', 'none');
-		svg.setAttribute('stroke', 'currentColor');
-		svg.setAttribute('stroke-width', '2');
-		svg.setAttribute('stroke-linecap', 'round');
-		svg.setAttribute('stroke-linejoin', 'round');
-		svg.classList.add('h-4', 'w-4');
-		svg.setAttribute('aria-hidden', 'true');
-		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-		path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
-		svg.appendChild(path);
-		button.appendChild(svg);
+		button.appendChild(createXSvg());
 		li.appendChild(button);
 		filteredList.appendChild(li);
 	});
+}
+
+function createXSvg() {
+	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+	svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+	svg.setAttribute('width', '24');
+	svg.setAttribute('height', '24');
+	svg.setAttribute('viewBox', '0 0 24 24');
+	svg.setAttribute('fill', 'none');
+	svg.setAttribute('stroke', 'currentColor');
+	svg.setAttribute('stroke-width', '2');
+	svg.setAttribute('stroke-linecap', 'round');
+	svg.setAttribute('stroke-linejoin', 'round');
+	svg.classList.add('h-4', 'w-4');
+	svg.setAttribute('aria-hidden', 'true');
+	const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+	path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+	svg.appendChild(path);
+	return svg;
+}
+
+var global = {
+	hidden: [],
+}
+
+function hideNode() {
+	if (!focused) {
+		return;
+	}
+	if (Array.isArray(focused)) {
+		return;
+	}
+
+	global.hidden.push(focused.name);
+	unfocus();
+	renderHidden();
+	renderGraph(currentGraph).catch(console.error);
 }
 
 async function focusNode() {
