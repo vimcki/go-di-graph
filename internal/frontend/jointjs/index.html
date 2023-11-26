@@ -156,11 +156,45 @@
 					<circle cx="11" cy="11" r="8"></circle>
 					<path d="m21 21-4.3-4.3"></path>
 				</svg>
-				<input
-					type="search"
-					class="flex h-10 rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full appearance-none pl-8 text-gray-300 bg-gray-800 border border-gray-700"
-					placeholder="Search nodes or edges..."
-				/>
+				<div class="search-container relative">
+						<input
+								id="searchBox"
+								type="search"
+								class="flex h-10 rounded-md px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 w-full appearance-none pl-8 text-gray-300 bg-gray-800 border border-gray-700"
+								placeholder="Search..."
+						/>
+						<div class="search-counter absolute right-2 top-2 text-gray-300">
+							<span id="resultCount"></span>
+						</div>
+				</div>		
+				<button
+					type="button"
+					class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 text-gray-300 border-gray-500"
+					onclick="previousSearchResult()"
+				> 
+					Previous
+				</button>
+				<button
+					type="button"
+					class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 text-gray-300 border-gray-500"
+					onclick="nextSearchResult()"
+				>
+					Next
+				</button>
+
+				<script>
+				    var searchBox = document.getElementById('searchBox');
+
+    searchBox.addEventListener('input', function() {
+				// debounce
+				clearTimeout(searchBox.timeout);
+							searchBox.timeout = setTimeout(() =>{
+								searchFunction(searchBox.value)
+							}, 300);
+
+    });
+
+				</script>
 			</div>
 		</div>
 	</div>
@@ -220,7 +254,6 @@ async function renderGraph(treeGraph){
       // Return the dimensions
       return { width: width, height: height };
     }
-
 
 	function fillHashes(node){
 		stringRep = JSON.stringify(node)
@@ -449,6 +482,8 @@ async function renderGraph(treeGraph){
 		}
 		focus(e.model);
 	});
+
+	searchFunction(searchBox.value)
 }
 
 function matchTarget(node, target) {
@@ -483,7 +518,6 @@ function hideFromGraph(current, targets) {
 	}
 }
 
-
 function focus(node) {
 	focused = node;
 	node.attr({
@@ -493,20 +527,10 @@ function focus(node) {
 	});
 }
 
-function multiFocus(node){
-	if (Array.isArray(focused)) {
-		focused.push(node);
-	} else{
-		focused = [node];
-	}
-	node.attr({
-		body: {
-			stroke: '#F44336', // Set the border color
-		},
-	});
-}
-
 function unfocus() {
+	if (!focused) {
+		return;
+	}
 	if (Array.isArray(focused)) {
 		focused.forEach(function(node) {
 			node.attr({
@@ -752,13 +776,17 @@ function createXSvg() {
 
 var global = {
 	hidden: [],
+	matches: [],
+	currentMatch: 0,
 }
 
 function hideNode() {
 	if (!focused) {
+		console.log('no focused node');
 		return;
 	}
 	if (Array.isArray(focused)) {
+		console.log('cannot hide multiple nodes');
 		return;
 	}
 
@@ -801,7 +829,7 @@ async function hideChildrenOfNode() {
 	const oldName = focused.name;
 	elements.forEach(function(element) {
 		if (element.name === oldName) {
-			multiFocus(element);
+			focus(element);
 		}
 	});
 }
@@ -822,8 +850,96 @@ async function focusNode() {
 	const oldName = focused.name;
 	elements.forEach(function(element) {
 		if (element.name === oldName) {
-			multiFocus(element);
+			focus(element);
 		}
+	});
+}
+
+function searchFunction(text) {
+	unfocus();
+	unhighlightSearch();
+	if (text === '') {
+		hideSearchCounter();
+		return;
+	}
+
+	global.matches = [];
+
+	currentJointJSGraph.getElements().forEach(function(element) {
+		if (element.name.toLowerCase().includes(text.toLowerCase())) {
+			global.matches.push(element);
+		}
+	});
+
+	global.currentMatch = 0;
+	if (global.matches.length === 0) {
+		hideSearchCounter();
+		return;
+	}
+	searchHighlight();
+	updateSearchCounter();
+	focus(global.matches[0]);
+}
+
+function nextSearchResult() {
+	if (global.matches.length === 0) {
+		return;
+	}
+	unfocus();
+	unhighlightSearch();
+	global.currentMatch++;
+	if (global.currentMatch >= global.matches.length) {
+		global.currentMatch = 0;
+	}
+	searchHighlight();
+	updateSearchCounter();
+	element = global.matches[global.currentMatch];
+	focus(element);
+}
+
+function previousSearchResult() {
+	if (global.matches.length === 0) {
+		return;
+	}
+	unfocus();
+	unhighlightSearch();
+	global.currentMatch--;
+	if (global.currentMatch < 0) {
+		global.currentMatch = global.matches.length - 1;
+	}
+	searchHighlight();
+	updateSearchCounter();
+	focus(global.matches[global.currentMatch]);
+}
+
+function hideSearchCounter() {
+	const counter = document.getElementById('resultCount');
+	counter.style.display = 'none';
+}
+
+function updateSearchCounter() {
+	const counter = document.getElementById('resultCount');
+	counter.textContent = `${global.currentMatch + 1}/${global.matches.length}`;
+	counter.style.display = 'block';
+}
+
+function unhighlightSearch() {
+	global.matches.forEach(function(element) {
+		element.attr({
+			body: {
+				stroke: 'none', // Set the border color
+			},
+		});
+	});
+}
+
+function searchHighlight() {
+	global.matches.forEach(function(element) {
+		element.attr({
+			body: {
+				stroke: '#4CAF50', // Set the border color
+			},
+		});
 	});
 }
 
