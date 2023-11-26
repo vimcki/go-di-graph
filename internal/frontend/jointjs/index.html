@@ -450,6 +450,7 @@ async function renderGraph(treeGraph){
 		focus(e.model);
 	});
 }
+
 function matchTarget(node, target) {
 	matches = false
 	if (target.type === 'pattern') {
@@ -765,6 +766,45 @@ function hideNode() {
 	unfocus();
 	renderHidden();
 	renderGraph(currentGraph).catch(console.error);
+}
+
+function findNode(node, name) {
+	if (node.name === name) {
+		return node;
+	}
+	if (node.deps) {
+		for (let i = 0; i < node.deps.length; i++) {
+			const found = findNode(node.deps[i], name);
+			if (found) {
+				return found;
+			}
+		}
+	}
+	return null;
+}
+
+async function hideChildrenOfNode() {
+	if (!focused) {
+		return;
+	}
+	if (Array.isArray(focused)) {
+		return;
+	}
+
+	findNode(baseGraph, focused.name).deps.forEach(function(dep) {
+		global.hidden.push(dep.name);
+	});
+
+	renderHidden();
+	await renderGraph(currentGraph).catch(console.error);
+	elements = currentJointJSGraph.getElements();
+	const oldName = focused.name;
+	elements.forEach(function(element) {
+		console.log(element.name, oldName);
+		if (element.name === oldName) {
+			multiFocus(element);
+		}
+	});
 }
 
 async function focusNode() {
