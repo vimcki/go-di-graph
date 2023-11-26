@@ -192,7 +192,7 @@ async function renderGraph(treeGraph){
 
 	let elements = [];
 
-	let id = 0;
+	let id = 1;
 
 	function getTextDimensions(text, font) {
       // Create a temporary canvas
@@ -800,7 +800,6 @@ async function hideChildrenOfNode() {
 	elements = currentJointJSGraph.getElements();
 	const oldName = focused.name;
 	elements.forEach(function(element) {
-		console.log(element.name, oldName);
 		if (element.name === oldName) {
 			multiFocus(element);
 		}

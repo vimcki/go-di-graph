@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
-	"log"
 	"strconv"
 	"strings"
 )
@@ -84,7 +83,6 @@ func fillMissingNamesRecursively(
 	hashToName map[string]string,
 	nameToID map[string]int,
 ) {
-	log.Println(graph.md5, graph.Name)
 	foundName, ok := hashToName[graph.md5]
 	if ok {
 		graph.Name = foundName
