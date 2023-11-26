@@ -186,7 +186,6 @@
 				    var searchBox = document.getElementById('searchBox');
 
     searchBox.addEventListener('input', function() {
-				// debounce
 				clearTimeout(searchBox.timeout);
 							searchBox.timeout = setTimeout(() =>{
 								searchFunction(searchBox.value)
@@ -213,15 +212,28 @@
 		<script>
 {{MD5}}
 const baseGraph = {{GRAPH_DATA}}
-focused = null;
-var currentJointJSGraph = null;
-var currentGraph = baseGraph;
+
+var global = {
+	hidden: [],
+	matches: [],
+	currentMatch: 0,
+	baseGraph: baseGraph,
+	focused: null,
+	currentJointJSGraph: null,
+	currentGraph: baseGraph,
+	roots: [],
+	filtered: [],
+}
+
+for (let dep of global.baseGraph.deps) {
+	global.roots.push(dep.name);
+}
 
 async function renderGraph(treeGraph){
-	currentGraph = treeGraph;
+	global.currentGraph = treeGraph;
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
 
-	removeFromGraph(treeGraph, filtered);
+	removeFromGraph(treeGraph, global.filtered);
 	hideFromGraph(treeGraph, global.hidden);
 
 	let elements = [];
@@ -296,7 +308,7 @@ async function renderGraph(treeGraph){
 	seen = {}
 	id2node = {}
 	var graph = new joint.dia.Graph({}, { cellNamespace: namespace });
-	currentJointJSGraph = graph;
+	global.currentJointJSGraph = graph;
 	const elk = new ELK();
 
 	var g = {
@@ -477,13 +489,24 @@ async function renderGraph(treeGraph){
 
 	// focus node on click
 	paper.on('element:pointerclick', function(e) {
-		if (focused) {
+		if (global.focused) {
 			unfocus();
 		}
 		focus(e.model);
 	});
 
 	searchFunction(searchBox.value)
+
+	if (!global.focused) {
+		return;
+	}
+	elements = global.currentJointJSGraph.getElements();
+	const oldName = global.focused.name;
+	elements.forEach(function(element) {
+		if (element.name === oldName) {
+			focus(element);
+		}
+	});
 }
 
 function matchTarget(node, target) {
@@ -519,7 +542,7 @@ function hideFromGraph(current, targets) {
 }
 
 function focus(node) {
-	focused = node;
+	global.focused = node;
 	node.attr({
 		body: {
 			stroke: '#F44336', // Set the border color
@@ -528,26 +551,15 @@ function focus(node) {
 }
 
 function unfocus() {
-	if (!focused) {
+	if (!global.focused) {
 		return;
 	}
-	if (Array.isArray(focused)) {
-		focused.forEach(function(node) {
-			node.attr({
-				body: {
-					stroke: 'none', // Set the border color
-				},
-			});
-		});
-		focused = null;
-		return;
-	}
-	focused.attr({
+	global.focused.attr({
 		body: {
 			stroke: 'none', // Set the border color
 		},
 	});
-	focused = null;
+	global.focused = null;
 }
 
 function highlight(node, graph){
@@ -587,31 +599,25 @@ function unhighlight(node, graph){
 
 function displayGraph(root) {
 	if (root === 'root') {
-		renderGraph(baseGraph).catch(console.error);
+		renderGraph(global.baseGraph).catch(console.error);
 		return;
 	}
-	const rootGraph = baseGraph.deps.find(d => d.name === root);
+	const rootGraph = global.baseGraph.deps.find(d => d.name === root);
 	renderGraph(rootGraph).catch(console.error);
-}
-
-roots = []
-for (let dep of baseGraph.deps) {
-	roots.push(dep.name);
 }
 
 function fillOptionsList(){
 	const optionsList = document.getElementById('options-list');
-	for(let i = 0; i < roots.length; i++){
+	for(let i = 0; i < global.roots.length; i++){
 		const option = document.createElement('li');
 		option.setAttribute('role', 'option');
-		option.textContent = roots[i];
-		option.onclick = () => selectOption(roots[i]);
+		option.textContent = global.roots[i];
+		option.onclick = () => selectOption(global.roots[i]);
 		optionsList.appendChild(option);
 	}
 }
 
 fillOptionsList();
-
 
 function trimToUsed(current, target) {
 	if (current.name === target.name) {
@@ -628,32 +634,28 @@ function trimToUsed(current, target) {
 	return false;
 }
 
-filtered = [];
 
 function filterPattern(pattern) {
-	filtered.push({type:"pattern", value: pattern});
+	global.filtered.push({type:"pattern", value: pattern});
 	renderFiltered();
-	renderGraph(currentGraph).catch(console.error);
+	renderGraph(global.currentGraph).catch(console.error);
 }
 
 function filterNode() {
-	if (!focused) {
-		return;
-	}
-	if (Array.isArray(focused)) {
+	if (!global.focused) {
 		return;
 	}
 
-	filtered.push({type:"node", value: focused.name});
+	global.filtered.push({type:"node", value: global.focused.name});
 	renderFiltered();
-	renderGraph(currentGraph).catch(console.error);
+	renderGraph(global.currentGraph).catch(console.error);
 	unfocus();
 }
 
 function unfilterNode(value) {
-	filtered = filtered.filter(n => n.value !== value);
+	global.filtered = global.filtered.filter(n => n.value !== value);
 	renderFiltered();
-	renderGraph(currentGraph).catch(console.error);
+	renderGraph(global.currentGraph).catch(console.error);
 }
 
 
@@ -686,20 +688,20 @@ function renderHidden() {
 function unhideNode(value) {
 	global.hidden = global.hidden.filter(n => n !== value);
 	renderHidden();
-	renderGraph(currentGraph).catch(console.error);
+	renderGraph(global.currentGraph).catch(console.error);
 }
 
 function renderFiltered() {
 	const filteredList = document.getElementById('filtered-list');
 
-	if (filtered.length === 0) {
+	if (global.filtered.length === 0) {
 		filteredList.style.display = 'none';
 	} else {
 		filteredList.style.display = 'block';
 	}
 
 	filteredList.innerHTML = '';
-	filtered.forEach(function(node) {
+	global.filtered.forEach(function(node) {
 		const li = document.createElement('li');
 		li.classList.add('flex', 'items-center', 'justify-between', 'px-3', 'py-2');
 
@@ -774,26 +776,16 @@ function createXSvg() {
 	return svg;
 }
 
-var global = {
-	hidden: [],
-	matches: [],
-	currentMatch: 0,
-}
-
 function hideNode() {
-	if (!focused) {
-		console.log('no focused node');
-		return;
-	}
-	if (Array.isArray(focused)) {
-		console.log('cannot hide multiple nodes');
+	if (!global.focused) {
+		console.log('no global.focused node');
 		return;
 	}
 
-	global.hidden.push(focused.name);
+	global.hidden.push(global.focused.name);
 	unfocus();
 	renderHidden();
-	renderGraph(currentGraph).catch(console.error);
+	renderGraph(global.currentGraph).catch(console.error);
 }
 
 function findNode(node, name) {
@@ -812,60 +804,39 @@ function findNode(node, name) {
 }
 
 async function hideChildrenOfNode() {
-	if (!focused) {
-		return;
-	}
-	if (Array.isArray(focused)) {
+	if (!global.focused) {
 		return;
 	}
 
-	findNode(baseGraph, focused.name).deps.forEach(function(dep) {
+	findNode(global.baseGraph, global.focused.name).deps.forEach(function(dep) {
 		global.hidden.push(dep.name);
 	});
 
 	renderHidden();
-	await renderGraph(currentGraph).catch(console.error);
-	elements = currentJointJSGraph.getElements();
-	const oldName = focused.name;
-	elements.forEach(function(element) {
-		if (element.name === oldName) {
-			focus(element);
-		}
-	});
+	await renderGraph(global.currentGraph).catch(console.error);
 }
 
 async function focusNode() {
-	if (!focused) {
-		return;
-	}
-	if (Array.isArray(focused)) {
+	if (!global.focused) {
 		return;
 	}
 
-
-	graph = JSON.parse(JSON.stringify(baseGraph));
-	trimToUsed(graph, focused);
+	graph = JSON.parse(JSON.stringify(global.baseGraph));
+	trimToUsed(graph, global.focused);
 	await renderGraph(graph).catch(console.error);
-	elements = currentJointJSGraph.getElements();
-	const oldName = focused.name;
-	elements.forEach(function(element) {
-		if (element.name === oldName) {
-			focus(element);
-		}
-	});
 }
 
 function searchFunction(text) {
-	unfocus();
 	unhighlightSearch();
 	if (text === '') {
 		hideSearchCounter();
 		return;
 	}
+	unfocus();
 
 	global.matches = [];
 
-	currentJointJSGraph.getElements().forEach(function(element) {
+	global.currentJointJSGraph.getElements().forEach(function(element) {
 		if (element.name.toLowerCase().includes(text.toLowerCase())) {
 			global.matches.push(element);
 		}
@@ -943,7 +914,7 @@ function searchHighlight() {
 	});
 }
 
-renderGraph(baseGraph).catch(console.error);
+renderGraph(global.baseGraph).catch(console.error);
 
 </script>
 		</div>
