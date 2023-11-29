@@ -222,7 +222,67 @@ var global = {
 	currentJointJSGraph: null,
 	currentGraph: baseGraph,
 	roots: [],
+	focusedView: null,
 	filtered: [],
+	searchText: null,
+}
+
+function updateUrl() {
+	const url = new URL(window.location.href);
+	const params = new URLSearchParams(url.search);
+	if (global.hidden.length === 0) {
+		params.delete('hidden');
+	} else {
+		params.set('hidden', global.hidden.join(','));
+	}
+	if (global.filtered.length === 0) {
+		params.delete('filtered');
+	} else {
+		params.set('filtered', JSON.stringify(global.filtered));
+	}
+	if (!global.focused) {
+		params.delete('focused');
+	} else {
+		params.set('focused', global.focused.name);
+	}
+	if (global.focusedView) {
+		params.set('view', global.focusedView);
+	} else {
+		params.delete('view');
+	}
+	if (global.searchText) {
+		params.set('search', global.searchText);
+	} else {
+		params.delete('search');
+	}
+	url.search = params.toString();
+	console.log(url.toString());
+	window.history.replaceState({}, '', url.toString());
+}
+
+function loadGlobalFromUrl() {
+	const url = new URL(window.location.href);
+	const params = new URLSearchParams(url.search);
+	const hidden = params.get('hidden');
+	if (hidden) {
+		global.hidden = hidden.split(',');
+	}
+	const filtered = params.get('filtered');
+	if (filtered) {
+		global.filtered = JSON.parse(filtered);
+	}
+	const focused = params.get('focused');
+	if (focused) {
+		global.focused = { name: focused };
+	}
+	const view = params.get('view');
+	if (view) {
+		global.focusedView = view;
+	}
+	const search = params.get('search');
+	if (search) {
+		global.searchText = search;
+	}
 }
 
 for (let dep of global.baseGraph.deps) {
@@ -230,6 +290,7 @@ for (let dep of global.baseGraph.deps) {
 }
 
 async function renderGraph(treeGraph){
+	updateUrl();
 	global.currentGraph = treeGraph;
 	treeGraph = JSON.parse(JSON.stringify(treeGraph));
 
@@ -493,15 +554,16 @@ async function renderGraph(treeGraph){
 			unfocus();
 		}
 		focus(e.model);
+		updateUrl();
 	});
 
-	searchFunction(searchBox.value)
+	searchFunction(global.searchText);
 
 	if (!global.focused) {
 		return;
 	}
-	elements = global.currentJointJSGraph.getElements();
 	const oldName = global.focused.name;
+	elements = global.currentJointJSGraph.getElements();
 	elements.forEach(function(element) {
 		if (element.name === oldName) {
 			focus(element);
@@ -554,11 +616,13 @@ function unfocus() {
 	if (!global.focused) {
 		return;
 	}
-	global.focused.attr({
-		body: {
-			stroke: 'none', // Set the border color
-		},
-	});
+	if (global.focused.attr) {
+		global.focused.attr({
+			body: {
+				stroke: 'none', // Set the border color
+			},
+		});
+	}
 	global.focused = null;
 }
 
@@ -598,6 +662,7 @@ function unhighlight(node, graph){
 }
 
 function displayGraph(root) {
+	global.focusedView = root;
 	if (root === 'root') {
 		renderGraph(global.baseGraph).catch(console.error);
 		return;
@@ -821,14 +886,18 @@ async function focusNode() {
 		return;
 	}
 
+	global.focusedView = global.focused.name;
+	updateUrl();
+
 	graph = JSON.parse(JSON.stringify(global.baseGraph));
 	trimToUsed(graph, global.focused);
 	await renderGraph(graph).catch(console.error);
 }
 
 function searchFunction(text) {
+	global.searchText = text;
 	unhighlightSearch();
-	if (text === '') {
+	if (text === '' || text === null) {
 		hideSearchCounter();
 		return;
 	}
@@ -850,6 +919,7 @@ function searchFunction(text) {
 	searchHighlight();
 	updateSearchCounter();
 	focus(global.matches[0]);
+	updateUrl();
 }
 
 function nextSearchResult() {
@@ -866,6 +936,7 @@ function nextSearchResult() {
 	updateSearchCounter();
 	element = global.matches[global.currentMatch];
 	focus(element);
+	updateUrl();
 }
 
 function previousSearchResult() {
@@ -881,6 +952,7 @@ function previousSearchResult() {
 	searchHighlight();
 	updateSearchCounter();
 	focus(global.matches[global.currentMatch]);
+	updateUrl();
 }
 
 function hideSearchCounter() {
@@ -914,7 +986,49 @@ function searchHighlight() {
 	});
 }
 
-renderGraph(global.baseGraph).catch(console.error);
+async function focusView(){
+	focused = global.focused;
+	global.focused = {name: global.focusedView};
+	if (global.focused) {
+		await	focusNode();
+		unfocus();
+	} else {
+		await renderGraph(global.baseGraph).catch(console.error);
+	}
+	global.focused = focused;
+}
+
+function fillSearch() {
+	const text = global.searchText;
+	if (!text) {
+		return;
+	}
+	const search = document.getElementById('searchBox');
+	search.value = text;
+}
+
+async function init() {
+	debugger;
+	loadGlobalFromUrl();
+	renderHidden();
+	renderFiltered();
+	fillSearch();
+	if (global.focusedView && global.focusedView !== 'root'){
+		await focusView()
+	} else {
+		await renderGraph(global.baseGraph).catch(console.error);
+	}
+	if (!global.focused) {
+		return;
+	}
+	global.currentJointJSGraph.getElements().forEach(function(element) {
+		if (element.name === global.focused.name) {
+			focus(element);
+		}
+	});
+}
+
+init();
 
 </script>
 		</div>
