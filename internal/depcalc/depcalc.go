@@ -7,6 +7,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"log"
+	"strings"
 
 	"github.com/vimcki/go-di-graph/internal/deptree"
 	"github.com/vimcki/go-di-graph/internal/deptree/evaluator"
@@ -43,7 +45,25 @@ func Depcalc(entryPoint, path string) (string, error) {
 
 	for _, pkg := range packages {
 		fnMap := make(map[string]*ast.FuncDecl)
+		allImorts := make(map[string]map[string]string)
 		for _, file := range pkg.Files {
+			importsMap := make(map[string]string)
+			ast.Inspect(file, func(node ast.Node) bool {
+				switch t := node.(type) {
+				case *ast.ImportSpec:
+					var name string
+					if t.Name == nil {
+						split := strings.Split(t.Path.Value, "/")
+						name = split[len(split)-1]
+						name = strings.Trim(name, "\"")
+					} else {
+						name = t.Name.Name
+					}
+
+					importsMap[name] = t.Path.Value
+				}
+				return true
+			})
 			ast.Inspect(file, func(node ast.Node) bool {
 				switch t := node.(type) {
 				case *ast.FuncDecl:
@@ -52,6 +72,8 @@ func Depcalc(entryPoint, path string) (string, error) {
 					if err != nil {
 						return false
 					}
+					log.Printf("function: %s", t.Name.Name)
+					allImorts[t.Name.Name] = importsMap
 					if fnIdent != entryPoint {
 						fnMap[fnIdent] = t
 						return true
@@ -65,7 +87,7 @@ func Depcalc(entryPoint, path string) (string, error) {
 			}
 		}
 
-		e := evaluator.NewEvaluator(fnMap, c)
+		e := evaluator.NewEvaluator(fnMap, c, allImorts)
 		dep, err := e.Eval(start)
 		if err != nil {
 			return "", fmt.Errorf("failed to evaluate dependencies: %w", err)

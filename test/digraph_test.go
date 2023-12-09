@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	digraph "github.com/vimcki/go-di-graph"
-	"github.com/vimcki/go-di-graph/internal/d2"
 	"github.com/vimcki/go-di-graph/internal/enhancer"
+	"github.com/vimcki/go-di-graph/internal/frontend/d2"
 	"github.com/wI2L/jsondiff"
 )
 

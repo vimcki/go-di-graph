@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -25,17 +26,23 @@ type dependency struct {
 type Evaluator struct {
 	env             *Environment
 	fnMap           map[string]*ast.FuncDecl
+	importsMap      map[string]map[string]string
 	globals         map[string]dependency
 	currentReceiver string
 	receiverEnv     map[string]dependency
 	configVarName   string
+	imports         map[string]string
 }
 
 type Environment struct {
 	dep map[string]dependency
 }
 
-func NewEvaluator(fnMap map[string]*ast.FuncDecl, c map[string]interface{}) *Evaluator {
+func NewEvaluator(
+	fnMap map[string]*ast.FuncDecl,
+	c map[string]interface{},
+	importsMap map[string]map[string]string,
+) *Evaluator {
 	dep := make(map[string]dependency)
 	for k, v := range c {
 		dep[k] = dependency{
@@ -44,6 +51,7 @@ func NewEvaluator(fnMap map[string]*ast.FuncDecl, c map[string]interface{}) *Eva
 			flatten: false,
 		}
 	}
+
 	return &Evaluator{
 		env: &Environment{
 			dep: dep,
@@ -52,6 +60,7 @@ func NewEvaluator(fnMap map[string]*ast.FuncDecl, c map[string]interface{}) *Eva
 		globals:     dep,
 		receiverEnv: map[string]dependency{},
 		// TODO, read from somewhere
+		importsMap:    importsMap,
 		configVarName: "cfg",
 	}
 }
@@ -63,10 +72,12 @@ func (e *Evaluator) getFuncNode(name string) (*ast.FuncDecl, error) {
 			return node, nil
 		}
 	}
+
 	node, ok := e.fnMap[name]
 	if !ok {
 		return nil, errors.New("unknown function: " + name)
 	}
+
 	return node, nil
 }
 
@@ -77,8 +88,10 @@ func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 		if err != nil {
 			return deptree.Dependency{}, err
 		}
+
 		if len(dep.deps) == 0 {
 			deps := []dependency{}
+
 			for _, env := range e.env.dep {
 				if strings.Contains(env.name, ".") {
 					name := strings.Split(env.name, ".")[1]
@@ -87,6 +100,7 @@ func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 					}
 				}
 			}
+
 			dep = dependency{
 				name:    "Aggregate",
 				deps:    deps,
@@ -96,6 +110,7 @@ func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 		}
 
 		printDep(dep, 0)
+
 		return toCommon(dep), nil
 	default:
 		return deptree.Dependency{}, errors.New("unknown node type in eval")
@@ -111,8 +126,16 @@ func (e *Evaluator) EvalFunc(fn *ast.FuncDecl) (dependency, error) {
 		e.currentReceiver = fn.Recv.List[0].Names[0].Name
 		e.passReceiverToEnv(fn)
 	}
-	var deps dependency
+
 	var err error
+
+	err = e.setImports(fn)
+	if err != nil {
+		return dependency{}, err
+	}
+
+	var deps dependency
+
 	for _, stmt := range fn.Body.List {
 		deps, err = e.evalStatement(stmt)
 		if err != nil {
@@ -121,6 +144,17 @@ func (e *Evaluator) EvalFunc(fn *ast.FuncDecl) (dependency, error) {
 	}
 
 	return deps, nil
+}
+
+func (e *Evaluator) setImports(fn *ast.FuncDecl) error {
+	name := fn.Name.Name
+	imports, ok := e.importsMap[name]
+	if !ok {
+		return errors.New("can't set imports, unknown function: " + name)
+	}
+
+	e.imports = imports
+	return nil
 }
 
 func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
@@ -155,10 +189,12 @@ func (e *Evaluator) evalBinaryExpr(expr *ast.BinaryExpr) (dependency, error) {
 	if err != nil {
 		return dependency{}, err
 	}
+
 	right, err := e.evalExpr(expr.Y)
 	if err != nil {
 		return dependency{}, err
 	}
+
 	return dependency{
 		name:    expr.Op.String(),
 		deps:    []dependency{left, right},
@@ -170,19 +206,23 @@ func (e *Evaluator) evalBinaryExpr(expr *ast.BinaryExpr) (dependency, error) {
 func (e *Evaluator) evalFuncLit(expr *ast.FuncLit) (dependency, error) {
 	// TODO this can overwrite local variables, this needs nested environments
 	var deps dependency
+
 	var err error
+
 	for _, arg := range expr.Type.Params.List {
 		e.setEnv(arg.Names[0].Name, dependency{
 			created: "FuncLit",
 			flatten: true,
 		})
 	}
+
 	for _, stmt := range expr.Body.List {
 		deps, err = e.evalStatement(stmt)
 		if err != nil {
 			return dependency{}, err
 		}
 	}
+
 	for _, arg := range expr.Type.Params.List {
 		delete(e.env.dep, arg.Names[0].Name)
 	}
@@ -192,6 +232,7 @@ func (e *Evaluator) evalFuncLit(expr *ast.FuncLit) (dependency, error) {
 
 func (e *Evaluator) evalKeyValueExpr(expr *ast.KeyValueExpr) (dependency, error) {
 	deps := []dependency{}
+
 	valDep, err := e.evalExpr(expr.Value)
 	if err != nil {
 		return dependency{}, err
@@ -207,10 +248,12 @@ func (e *Evaluator) evalKeyValueExpr(expr *ast.KeyValueExpr) (dependency, error)
 		name = key.Value
 	case *ast.SelectorExpr:
 		var dep *dependency
+
 		name, dep, err = e.evalSelectorRecursively(key)
 		if err != nil {
 			return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
 		}
+
 		if dep != nil {
 			deps = append(deps, *dep)
 		}
@@ -246,7 +289,9 @@ func (e *Evaluator) evalIdent(t *ast.Ident) (dependency, error) {
 	if strings.Contains(identDep.name, ".") {
 		return identDep, nil
 	}
+
 	identDep.flatten = true
+
 	return identDep, nil
 }
 
@@ -290,6 +335,8 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 		deps = append(deps, *recDep)
 	}
 
+	log.Println("selector", selector)
+
 	return dependency{
 		name:    selector,
 		created: "SelectorExpr",
@@ -301,8 +348,11 @@ func (e *Evaluator) findSelectorDep(selector string) (dependency, bool) {
 	split := strings.Split(selector, ".")
 	for i := len(split); i >= 0; i-- {
 		part := strings.Join(split[:i], ".")
+
 		dep, ok := e.env.dep[part]
 		if ok {
+			log.Println("selector dep", selector)
+
 			return dependency{
 				name:    selector,
 				deps:    []dependency{dep},
@@ -311,6 +361,7 @@ func (e *Evaluator) findSelectorDep(selector string) (dependency, bool) {
 			}, true
 		}
 	}
+
 	return dependency{}, false
 }
 
@@ -334,8 +385,11 @@ func findIdent(expr *ast.SelectorExpr) (string, error) {
 
 func (e *Evaluator) evalSelectorRecursively(expr *ast.SelectorExpr) (string, *dependency, error) {
 	var err error
+
 	var selector string
+
 	var dep *dependency
+
 	switch expr.X.(type) {
 	case *ast.Ident:
 		selector = expr.X.(*ast.Ident).Name
@@ -356,6 +410,7 @@ func (e *Evaluator) evalSelectorRecursively(expr *ast.SelectorExpr) (string, *de
 	default:
 		return "", nil, fmt.Errorf("unknown selector expr type in eval selector: %s", reflect.TypeOf(expr.X).String())
 	}
+
 	return selector + "." + expr.Sel.Name, dep, nil
 }
 
@@ -375,13 +430,16 @@ func (e *Evaluator) evalCompositeLiteral(expr *ast.CompositeLit) (dependency, er
 
 func (e *Evaluator) evalCompositeLiteralMap(expr *ast.CompositeLit) (dependency, error) {
 	var deps []dependency
+
 	for _, elt := range expr.Elts {
 		dep, err := e.evalExpr(elt)
 		if err != nil {
 			return dependency{}, err
 		}
+
 		deps = append(deps, dep)
 	}
+
 	return dependency{
 		deps:    deps,
 		flatten: false,
@@ -391,13 +449,16 @@ func (e *Evaluator) evalCompositeLiteralMap(expr *ast.CompositeLit) (dependency,
 
 func (e *Evaluator) evalCompositeLiteralSlice(expr *ast.CompositeLit) (dependency, error) {
 	var deps []dependency
+
 	for _, elt := range expr.Elts {
 		dep, err := e.evalExpr(elt)
 		if err != nil {
 			return dependency{}, err
 		}
+
 		deps = append(deps, dep)
 	}
+
 	return dependency{
 		deps:    deps,
 		flatten: true,
@@ -407,26 +468,35 @@ func (e *Evaluator) evalCompositeLiteralSlice(expr *ast.CompositeLit) (dependenc
 
 func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 	var name string
+
 	var flatten bool
+
 	deps := []dependency{}
+
 	switch t := callExpr.Fun.(type) {
 	case *ast.Ident:
 		if !in(t.Name, buitins) {
 			args := make(map[string]dependency)
+
 			node, err := e.getFuncNode(t.Name)
 			if err != nil {
 				return dependency{}, err
 			}
+
 			nodeArgs := node.Type.Params.List
+
 			for i, arg := range callExpr.Args {
 				dep, err := e.evalExpr(arg)
 				if err != nil {
 					return dependency{}, err
 				}
+
 				ident := nodeArgs[i].Names[0].Name
 				args[ident] = dep
 			}
+
 			evaluator := NewEvaluatorFrom(e, args)
+
 			dep, err := evaluator.EvalFunc(node)
 			if err != nil {
 				return dependency{}, err
@@ -435,30 +505,39 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 			e.promoteReceiverEnv(evaluator)
 
 			dep.flatten = true
+
 			return dep, nil
 		}
+
 		name = t.Name
 		flatten = false
 	case *ast.SelectorExpr:
 		fnName := t.Sel.Name
+
 		switch t.X.(type) {
 		case *ast.Ident:
 			if e.currentReceiver != "" && e.currentReceiver == t.X.(*ast.Ident).Name {
 				args := make(map[string]dependency)
+
 				node, err := e.getFuncNode(fnName)
 				if err != nil {
 					return dependency{}, err
 				}
+
 				nodeArgs := node.Type.Params.List
+
 				for i, arg := range callExpr.Args {
 					dep, err := e.evalExpr(arg)
 					if err != nil {
 						return dependency{}, err
 					}
+
 					ident := nodeArgs[i].Names[0].Name
 					args[ident] = dep
 				}
+
 				evaluator := NewEvaluatorFrom(e, args)
+
 				dep, err := evaluator.EvalFunc(node)
 				if err != nil {
 					return dependency{}, err
@@ -467,6 +546,7 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 				e.promoteReceiverEnv(evaluator)
 
 				dep.flatten = false
+
 				return dep, nil
 			} else {
 				name = t.X.(*ast.Ident).Name + "." + fnName
@@ -474,10 +554,12 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 			}
 		case *ast.CallExpr:
 			flatten = true
+
 			dep, err := e.evalCallExpr(t.X.(*ast.CallExpr))
 			if err != nil {
 				return dependency{}, fmt.Errorf("failed eval call expr: %w", err)
 			}
+
 			deps = append(deps, dep)
 		default:
 			return dependency{}, errors.New("unknown call expr type in eval selector expr, " + reflect.TypeOf(t).String())
@@ -491,14 +573,18 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		if err != nil {
 			return dependency{}, err
 		}
+
 		deps = append(deps, dep)
 	}
+
+	log.Println("call expr", name, flatten)
 	dep := dependency{
 		name:    name,
 		deps:    deps,
 		flatten: flatten,
 		created: "CallExpr",
 	}
+
 	return dep, nil
 }
 
@@ -507,15 +593,19 @@ func NewEvaluatorFrom(e *Evaluator, args map[string]dependency) *Evaluator {
 	for k, v := range e.globals {
 		dep[k] = v
 	}
+
 	for k, v := range args {
 		dep[k] = v
 	}
+
 	return &Evaluator{
-		env:           &Environment{dep: dep},
-		fnMap:         e.fnMap,
-		globals:       e.globals,
-		receiverEnv:   e.receiverEnv,
-		configVarName: e.configVarName,
+		env:             &Environment{dep: dep},
+		fnMap:           e.fnMap,
+		globals:         e.globals,
+		currentReceiver: "",
+		receiverEnv:     e.receiverEnv,
+		configVarName:   e.configVarName,
+		importsMap:      e.importsMap,
 	}
 }
 
@@ -525,14 +615,18 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 		return e.evalExpr(t.Results[0])
 	case *ast.AssignStmt:
 		var deps []dependency
+
 		for _, expr := range t.Rhs {
 			dep, err := e.evalExpr(expr)
 			if err != nil {
 				return dependency{}, err
 			}
+
 			deps = append(deps, dep)
 		}
+
 		var err error
+
 		for _, ident := range t.Lhs {
 			name := ""
 			switch i := ident.(type) {
@@ -540,10 +634,12 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 				name = ident.(*ast.Ident).Name
 			case *ast.SelectorExpr:
 				var dep *dependency
+
 				name, dep, err = e.evalSelectorRecursively(i)
 				if err != nil {
 					return dependency{}, fmt.Errorf("failed to eval selector recursively: %w", err)
 				}
+
 				if dep != nil {
 					deps = append(deps, *dep)
 				}
@@ -557,6 +653,7 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 				created: "AssignStmt",
 			})
 		}
+
 		return dependency{
 			created: "AssignStmt, return empty dep",
 		}, nil
@@ -581,6 +678,7 @@ func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
 	switch t := expr.(type) {
 	case *ast.BinaryExpr:
 		var isEqual bool
+
 		switch t.Op.String() {
 		case "==":
 			isEqual = true
@@ -591,8 +689,11 @@ func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
 				"unknown binary expr type in eval if stmt, " + reflect.TypeOf(t).String(),
 			)
 		}
+
 		var left, right string
+
 		var err error
+
 		switch t.X.(type) {
 		case *ast.Ident:
 			left = t.X.(*ast.Ident).Name
@@ -606,6 +707,7 @@ func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
 				"unknown X type in evalIf, " + reflect.TypeOf(t.X).String(),
 			)
 		}
+
 		switch t.Y.(type) {
 		case *ast.Ident:
 			right = t.Y.(*ast.Ident).Name
@@ -619,9 +721,11 @@ func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
 				"unknown Y type in evalIf, " + reflect.TypeOf(t.Y).String(),
 			)
 		}
+
 		if left != "nil" && right != "nil" {
 			return dependency{}, errors.New("if statement only supports nil checks")
 		}
+
 		var realSelector string
 		if left == "nil" {
 			realSelector = right
@@ -641,9 +745,11 @@ func (e *Evaluator) evalIfStmt(stmt *ast.IfStmt) (dependency, error) {
 					created: "IfStmt, return empty dep",
 				}, nil
 			}
+
 			return e.evalStatement(stmt.Else)
 		}
 	}
+
 	return dependency{}, errors.New(
 		"unknown if stmt type in eval, " + reflect.TypeOf(expr).String(),
 	)
@@ -668,6 +774,7 @@ func (e *Evaluator) evalBlockStmt(stmt *ast.BlockStmt) (dependency, error) {
 			return dependency{}, err
 		}
 	}
+
 	return dependency{
 		created: "BlockStmt, return empty dep",
 	}, nil
@@ -676,12 +783,15 @@ func (e *Evaluator) evalBlockStmt(stmt *ast.BlockStmt) (dependency, error) {
 func (e *Evaluator) evalRangeStmt(stmt *ast.RangeStmt) (dependency, error) {
 	key := stmt.Key.(*ast.Ident).Name
 	val := stmt.Value.(*ast.Ident).Name
+
 	dep, err := e.evalExpr(stmt.X)
 	if err != nil {
 		return dependency{}, err
 	}
+
 	e.setEnv(key, dep)
 	e.setEnv(val, dep)
+
 	return e.evalBlockStmt(stmt.Body)
 }
 
@@ -691,6 +801,7 @@ func in(s string, ss []string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -701,8 +812,10 @@ func toCommon(dep dependency) deptree.Dependency {
 			deps = append(deps, skipFlatten(d)...)
 			continue
 		}
+
 		deps = append(deps, toCommon(d))
 	}
+
 	return deptree.Dependency{
 		Name: dep.name,
 		Deps: deps,
@@ -717,8 +830,10 @@ func skipFlatten(dep dependency) []deptree.Dependency {
 			deps = append(deps, skipFlatten(dd)...)
 			continue
 		}
+
 		deps = append(deps, toCommon(dd))
 	}
+
 	return deps
 }
 
@@ -732,6 +847,7 @@ func printDep(dep dependency, level int) {
 func (e *Evaluator) setEnv(name string, dep dependency) {
 	e.env.dep[name] = dep
 	split := strings.Split(name, ".")
+
 	if len(split) > 1 && e.currentReceiver != "" && split[0] == e.currentReceiver {
 		// TODO this will not work for patterns like: s.coreAPIConnection.Addr
 		e.receiverEnv[split[1]] = dep
@@ -745,6 +861,7 @@ func (e *Evaluator) promoteReceiverEnv(eval *Evaluator) {
 			// this hides nodes in graph like b.component1
 			v.flatten = true
 		}
+
 		e.env.dep[e.currentReceiver+"."+k] = v
 		e.receiverEnv[k] = v
 	}
