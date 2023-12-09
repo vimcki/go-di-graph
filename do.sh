@@ -6,6 +6,7 @@ echo "---------------- flattening ----------------"
 PROJECT=$1
 ENTRY=$2
 BUILD=$3
+URL=$4
 
 go run cmd/flat/main.go \
 	--config=projects/$PROJECT/config.json \
@@ -24,7 +25,9 @@ echo "---------------- enhancer ----------------"
 
 go run cmd/enhancer/main.go \
 	--config_path=projects/$PROJECT/config.json \
-	--tree_path=projects/$PROJECT/deptree.json > projects/$PROJECT/enhanced.json
+	--tree_path=projects/$PROJECT/deptree.json \
+	--project_name=$PROJECT \
+	--base_url=$URL > projects/$PROJECT/enhanced.json 
 
 echo "---------------- render ----------------"
 

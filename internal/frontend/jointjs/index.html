@@ -13,29 +13,93 @@
 		<div class="flex-1 overflow-auto">
 			<h3 class="text-xl font-semibold mb-2 text-blue-400">Node Controls</h3>
 			<button 
-			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			id="focus-node"
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500 cursor-pointer"
 			onclick="focusNode()"
 			>
 				Focus
 			</button>
-<button 
+			<button 
+			id="unfocus-node"
 			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
 			onclick="filterNode()"
 			>
 				Filter
 			</button>
 			<button
+			id="hide-node"
 			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
 			onclick="hideNode()"
 			>
 				Hide
 			</button>
 			<button
+			id="hide-children"
 			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
 			onclick="hideChildrenOfNode()"
 			>
 				Hide Children
 			</button>
+
+			<button
+			id="go-to-repo"
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="gotoRepo()"
+			>
+				Go to repo
+			</button>
+
+			<script>
+				function gotoRepo() {
+					if (!global.focused) {
+						return;
+					}
+					const url = global.focused.url;
+					if (!url) {
+						return;
+					}
+					window.open(url, '_blank');
+				}
+			</script>
+
+			<button
+			id="copy-file-path"
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 w-full mb-2 text-gray-300 border-gray-500"
+			onclick="copyFilePathToClipboard()"
+			>
+				Copy package path
+			</button>
+
+			<script>
+				function copyFilePathToClipboard() {
+					if (!global.focused) {
+						return;
+					}
+					const filePath = global.focused.file_path;
+					if (!filePath) {
+						return;
+					}
+					navigator.clipboard.writeText(filePath);
+				}
+			</script>
+
+			<script>
+			gotoRepoButton = document.getElementById('go-to-repo');
+			copyFilePathButton = document.getElementById('copy-file-path');
+			otherButtons = [
+				document.getElementById('focus-node'),
+				document.getElementById('unfocus-node'),
+				document.getElementById('hide-node'),
+				document.getElementById('hide-children'),
+			];
+
+			allButtons = [
+				gotoRepoButton,
+				copyFilePathButton,
+				...otherButtons,
+			];
+			</script>
+
 			<div class="mb-2">
 				<h4 class="text-lg font-semibold mb-2 text-yellow-500">Filters</h4>
 				<ul id="filtered-list" class="text-gray-300 z-10 bg-gray-800 border border-gray-700 rounded-md shadow-lg py-1 mt-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm max-h-60 hidden">
@@ -256,7 +320,6 @@ function updateUrl() {
 		params.delete('search');
 	}
 	url.search = params.toString();
-	console.log(url.toString());
 	window.history.replaceState({}, '', url.toString());
 }
 
@@ -407,6 +470,8 @@ async function renderGraph(treeGraph){
 			height: dep.height,
 			label: dep.label,
 			tooltip: dep.tooltip,
+			url: dep.url,
+			file_path: dep.file_path,
 			name: dep.name,
 		})
 
@@ -440,6 +505,8 @@ async function renderGraph(treeGraph){
 			id2node[node.id] = rect;
 			rect.myID = node.id;
 			rect.tooltip = node.tooltip;
+			rect.url = node.url;
+			rect.file_path = node.file_path;
 			rect.name = node.name;
 			rect.resize(node.width, node.height);
 			rect.position(node.x, node.y);
@@ -603,7 +670,31 @@ function hideFromGraph(current, targets) {
 	}
 }
 
+  function applyGrayOut(button) {
+    button.classList.add('bg-gray-500', 'text-gray-400', 'cursor-not-allowed');
+    button.disabled = true;
+  }
+
+  function removeGrayOut(button) {
+    button.classList.remove('bg-gray-500', 'text-gray-400', 'cursor-not-allowed');
+    button.disabled = false;
+  }
+
 function focus(node) {
+	if (node.url) {
+		removeGrayOut(gotoRepoButton);
+	} else {
+		applyGrayOut(gotoRepoButton);
+	}
+
+	if (node.file_path) {
+		removeGrayOut(copyFilePathButton);
+	} else {
+		applyGrayOut(copyFilePathButton);
+	}
+
+	otherButtons.forEach(removeGrayOut);
+
 	global.focused = node;
 	node.attr({
 		body: {
@@ -1008,7 +1099,6 @@ function fillSearch() {
 }
 
 async function init() {
-	debugger;
 	loadGlobalFromUrl();
 	renderHidden();
 	renderFiltered();
@@ -1029,6 +1119,8 @@ async function init() {
 }
 
 init();
+
+allButtons.forEach(applyGrayOut);
 
 </script>
 		</div>

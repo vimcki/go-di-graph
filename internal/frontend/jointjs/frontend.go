@@ -10,10 +10,12 @@ import (
 )
 
 type Dependency struct {
-	Name  string        `json:"name"`
-	Deps  []*Dependency `json:"deps,omitempty"`
-	Value interface{}   `json:"value,omitempty"`
-	md5   string
+	Name     string        `json:"name"`
+	Deps     []*Dependency `json:"deps,omitempty"`
+	Value    interface{}   `json:"value,omitempty"`
+	Url      string        `json:"url,omitempty"`
+	FilePath string        `json:"file_path,omitempty"`
+	md5      string
 }
 
 //go:embed index.html

@@ -27,26 +27,39 @@ type OutputDependency struct {
 }
 
 type Enhancer struct {
-	configPath  string
+	config      map[string]interface{}
 	baseUrl     string
 	projectName string
 }
 
 type Option func(*Enhancer)
 
-func New(configPath string, options ...Option) *Enhancer {
+func New(configPath string, options ...Option) (*Enhancer, error) {
+	// Load config
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var config map[string]interface{}
+
+	err = json.Unmarshal(data, &config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
 	e := &Enhancer{
-		configPath: configPath,
+		config: config,
 	}
 
 	for _, option := range options {
 		option(e)
 	}
 
-	return e
+	return e, nil
 }
 
-func WithMetadata(baseUrl, projectName string) Option {
+func WithMetadata(projectName, baseUrl string) Option {
 	return func(e *Enhancer) {
 		e.baseUrl = baseUrl
 		e.projectName = projectName
@@ -54,27 +67,14 @@ func WithMetadata(baseUrl, projectName string) Option {
 }
 
 func (e *Enhancer) Enhance(treeData string) (string, error) {
-	// Load config
-	data, err := os.ReadFile(e.configPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var config map[string]interface{}
-
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse config file: %w", err)
-	}
-
 	var tree Dependency
 
-	err = json.Unmarshal([]byte(treeData), &tree)
+	err := json.Unmarshal([]byte(treeData), &tree)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse tree file: %w", err)
 	}
 
-	err = enhanceTree(&tree, config)
+	err = e.enhanceTree(&tree)
 	if err != nil {
 		return "", fmt.Errorf("failed to enhance tree: %w", err)
 	}
@@ -89,10 +89,10 @@ func (e *Enhancer) Enhance(treeData string) (string, error) {
 	return string(bytes), nil
 }
 
-func enhanceTree(dep *Dependency, config map[string]interface{}) error {
+func (e *Enhancer) enhanceTree(dep *Dependency) error {
 	if strings.HasPrefix(dep.Name, "cfg.") {
 		ctx := map[string]interface{}{
-			"cfg": config,
+			"cfg": e.config,
 		}
 		evaluator := goval.NewEvaluator()
 
@@ -104,8 +104,22 @@ func enhanceTree(dep *Dependency, config map[string]interface{}) error {
 		}
 	}
 
+	if dep.ImportedFrom != "" && e.projectName != "" {
+		if strings.Contains(dep.ImportedFrom, "/"+e.projectName+"/") {
+			split := strings.Split(dep.ImportedFrom, "/"+e.projectName+"/")
+			dep.FilePath = split[len(split)-1]
+			if e.baseUrl != "" {
+				dep.Url = e.baseUrl + dep.FilePath
+			}
+		} else {
+			if strings.Contains(dep.ImportedFrom, ".") {
+				dep.Url = "https://" + dep.ImportedFrom
+			}
+		}
+	}
+
 	for _, depChild := range dep.Deps {
-		err := enhanceTree(depChild, config)
+		err := e.enhanceTree(depChild)
 		if err != nil {
 			return err
 		}

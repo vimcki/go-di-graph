@@ -11,6 +11,8 @@ import (
 func main() {
 	configPath := flag.String("config_path", "", "Path to config file")
 	treePath := flag.String("tree_path", "", "Path to tree file")
+	projectName := flag.String("project_name", "", "Name of the project")
+	baseUrl := flag.String("base_url", "", "Base url of the project")
 
 	flag.Parse()
 
@@ -20,7 +22,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	e := enhancer.New(*configPath)
+	e, err := enhancer.New(
+		*configPath,
+		enhancer.WithMetadata(*projectName, *baseUrl),
+	)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	rusult, err := e.Enhance(string(data))
 	if err != nil {
