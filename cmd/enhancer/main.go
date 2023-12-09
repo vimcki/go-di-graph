@@ -20,7 +20,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	rusult, err := enhancer.Enhance(*configPath, string(data))
+	e := enhancer.New(*configPath)
+
+	rusult, err := e.Enhance(string(data))
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

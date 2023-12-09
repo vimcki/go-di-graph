@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
-	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -17,10 +16,11 @@ var buitins = []string{
 }
 
 type dependency struct {
-	name    string
-	deps    []dependency
-	flatten bool
-	created string
+	name         string
+	deps         []dependency
+	flatten      bool
+	created      string
+	importedFrom string
 }
 
 type Evaluator struct {
@@ -307,10 +307,17 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 			return dependency{}, err
 		}
 
+		importedFrom, err := e.importedFrom(selector)
+		if err != nil {
+			return dependency{}, fmt.Errorf("failed to get imported from: %w", err)
+		}
+
 		return dependency{
-			name:    selector,
-			created: "SelectorExpr config",
-			flatten: false,
+			name:         selector,
+			deps:         []dependency{},
+			flatten:      false,
+			created:      "SelectorExpr config",
+			importedFrom: importedFrom,
 		}, nil
 	}
 
@@ -335,8 +342,6 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 		deps = append(deps, *recDep)
 	}
 
-	log.Println("selector", selector)
-
 	return dependency{
 		name:    selector,
 		created: "SelectorExpr",
@@ -351,8 +356,6 @@ func (e *Evaluator) findSelectorDep(selector string) (dependency, bool) {
 
 		dep, ok := e.env.dep[part]
 		if ok {
-			log.Println("selector dep", selector)
-
 			return dependency{
 				name:    selector,
 				deps:    []dependency{dep},
@@ -577,15 +580,32 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		deps = append(deps, dep)
 	}
 
-	log.Println("call expr", name, flatten)
-	dep := dependency{
-		name:    name,
-		deps:    deps,
-		flatten: flatten,
-		created: "CallExpr",
+	importedFrom, err := e.importedFrom(name)
+	if err != nil {
+		return dependency{}, fmt.Errorf("failed to get imported from: %w", err)
 	}
 
+	dep := dependency{
+		name:         name,
+		deps:         deps,
+		flatten:      flatten,
+		created:      "CallExpr",
+		importedFrom: importedFrom,
+	}
 	return dep, nil
+}
+
+func (e *Evaluator) importedFrom(name string) (string, error) {
+	split := strings.Split(name, ".")
+	packageSelector := split[0]
+	if len(split) > 1 && packageSelector != e.configVarName {
+		importedFrom, ok := e.imports[packageSelector]
+		if !ok {
+			return "", errors.New("unknown package: " + packageSelector)
+		}
+		return importedFrom, nil
+	}
+	return "", nil
 }
 
 func NewEvaluatorFrom(e *Evaluator, args map[string]dependency) *Evaluator {
@@ -817,9 +837,10 @@ func toCommon(dep dependency) deptree.Dependency {
 	}
 
 	return deptree.Dependency{
-		Name: dep.name,
-		Deps: deps,
-		Desc: dep.created,
+		Name:         dep.name,
+		Deps:         deps,
+		Desc:         dep.created,
+		ImportedFrom: dep.importedFrom,
 	}
 }
 

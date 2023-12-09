@@ -7,7 +7,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"log"
 	"strings"
 
 	"github.com/vimcki/go-di-graph/internal/deptree"
@@ -60,7 +59,7 @@ func Depcalc(entryPoint, path string) (string, error) {
 						name = t.Name.Name
 					}
 
-					importsMap[name] = t.Path.Value
+					importsMap[name] = strings.Trim(t.Path.Value, "\"")
 				}
 				return true
 			})
@@ -72,7 +71,6 @@ func Depcalc(entryPoint, path string) (string, error) {
 					if err != nil {
 						return false
 					}
-					log.Printf("function: %s", t.Name.Name)
 					allImorts[t.Name.Name] = importsMap
 					if fnIdent != entryPoint {
 						fnMap[fnIdent] = t
