@@ -11,9 +11,9 @@ type Set struct {
 	Processor       processor.Processor
 }
 
-func (s *Set) Build(cfg configuration.Configuration) error {
+func (s *Set) Build(config configuration.Configuration) error {
 	if s.commonComponent == nil {
-		s.fillCommonComponent(cfg)
+		s.fillCommonComponent(config)
 	}
 
 	s.Processor = processor.New(s.commonComponent)
@@ -21,6 +21,6 @@ func (s *Set) Build(cfg configuration.Configuration) error {
 	return nil
 }
 
-func (s *Set) fillCommonComponent(cfg configuration.Configuration) {
-	s.commonComponent = common.NewComponent(cfg.Addr)
+func (s *Set) fillCommonComponent(config configuration.Configuration) {
+	s.commonComponent = common.NewComponent(config.Addr)
 }

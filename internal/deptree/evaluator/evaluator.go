@@ -60,8 +60,7 @@ func NewEvaluator(
 		globals:     dep,
 		receiverEnv: map[string]dependency{},
 		// TODO, read from somewhere
-		importsMap:    importsMap,
-		configVarName: "cfg",
+		importsMap: importsMap,
 	}
 }
 
@@ -84,6 +83,11 @@ func (e *Evaluator) getFuncNode(name string) (*ast.FuncDecl, error) {
 func (e *Evaluator) Eval(node ast.Node) (deptree.Dependency, error) {
 	switch t := node.(type) {
 	case *ast.FuncDecl:
+		if t.Type.Params.NumFields() != 0 {
+			arg1 := t.Type.Params.List[0]
+			e.configVarName = arg1.Names[0].Name
+		}
+
 		dep, err := e.EvalFunc(t)
 		if err != nil {
 			return deptree.Dependency{}, err
@@ -313,7 +317,7 @@ func (e *Evaluator) evalSelectorExpr(expr *ast.SelectorExpr) (dependency, error)
 		}
 
 		return dependency{
-			name:         selector,
+			name:         strings.Replace(selector, e.configVarName, "cfg", 1),
 			deps:         []dependency{},
 			flatten:      false,
 			created:      "SelectorExpr config",

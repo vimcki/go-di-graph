@@ -200,7 +200,10 @@ func (d *Digraph) buildTree() ([]byte, error) {
 		return nil, fmt.Errorf("failed to write deptree file: %w", err)
 	}
 
-	e, err := enhancer.New(configPath, enhancer.WithMetadata(d.repoName, d.baseUrl))
+	e, err := enhancer.New(
+		configPath,
+		enhancer.WithMetadata(d.repoName, d.baseUrl),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create enhancer: %w", err)
 	}
