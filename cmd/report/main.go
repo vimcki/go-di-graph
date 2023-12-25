@@ -13,17 +13,23 @@ type report struct {
 }
 
 type Report struct {
-	Title string `json:"title"`
-	Graph Graph  `json:"graph"`
+	Title  string        `json:"title"`
+	Graph  GraphOrConfig `json:"graph"`
+	Config GraphOrConfig `json:"config"`
 }
 
-type Graph struct {
+type GraphOrConfig struct {
 	Data string `json:"data"`
 }
 
 func main() {
-	name := "heimdall"
-	data, err := os.ReadFile("projects/" + name + "/enhanced.json")
+	name := "freya"
+	graphData, err := os.ReadFile("projects/" + name + "/enhanced.json")
+	if err != nil {
+		panic(err)
+	}
+
+	configData, err := os.ReadFile("projects/" + name + "/config.json")
 	if err != nil {
 		panic(err)
 	}
@@ -31,8 +37,11 @@ func main() {
 	report := report{
 		Report: Report{
 			Title: name,
-			Graph: Graph{
-				Data: string(data),
+			Graph: GraphOrConfig{
+				Data: string(graphData),
+			},
+			Config: GraphOrConfig{
+				Data: string(configData),
 			},
 		},
 	}
