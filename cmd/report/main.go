@@ -24,12 +24,12 @@ type GraphOrConfig struct {
 
 func main() {
 	name := "freya"
-	graphData, err := os.ReadFile("projects/" + name + "/enhanced.json")
+	graphData, err := os.ReadFile("_projects/" + name + "/enhanced.json")
 	if err != nil {
 		panic(err)
 	}
 
-	configData, err := os.ReadFile("projects/" + name + "/config.json")
+	configData, err := os.ReadFile("_projects/" + name + "/config.json")
 	if err != nil {
 		panic(err)
 	}

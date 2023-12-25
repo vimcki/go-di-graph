@@ -22,16 +22,16 @@ type Test struct {
 	path       string
 }
 
-//go:embed modules/test1/build
+//go:embed _modules/test1/build
 var test1 embed.FS
 
-//go:embed modules/test_set/build
+//go:embed _modules/test_set/build
 var test2 embed.FS
 
-//go:embed modules/test_var/build
+//go:embed _modules/test_var/build
 var test3 embed.FS
 
-//go:embed modules/nested_structs/build
+//go:embed _modules/nested_structs/build
 var test4 embed.FS
 
 func TestDigraph(t *testing.T) {
@@ -40,25 +40,25 @@ func TestDigraph(t *testing.T) {
 			name:       "test1",
 			entrypoint: "Build",
 			fs:         test1,
-			path:       "modules/test1/",
+			path:       "_modules/test1/",
 		},
 		{
 			name:       "test_set_build",
 			entrypoint: "Set.Build",
 			fs:         test2,
-			path:       "modules/test_set/",
+			path:       "_modules/test_set/",
 		},
 		{
 			name:       "test_variables",
 			entrypoint: "Set.Build",
 			fs:         test3,
-			path:       "modules/test_var/",
+			path:       "_modules/test_var/",
 		},
 		{
 			name:       "test nested structs",
 			entrypoint: "Worker.Fill",
 			fs:         test4,
-			path:       "modules/nested_structs/",
+			path:       "_modules/nested_structs/",
 		},
 	}
 
