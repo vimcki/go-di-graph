@@ -10,29 +10,6 @@ import (
 )
 
 var testFilesystem = fstest.MapFS{
-	"main.go": &fstest.MapFile{
-		Data: []byte(`package main
-
-import (
-	"fmt"
-	"github.com/project/internal/build"
-	"github.com/project/internal/config"
-)
-
-func main() {
-		cfg := config.Config{
-			Strategy: "test",
-		}
-
-		
-		processor, err := build.Build(cfg)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(processor)
-}
-`),
-	},
 	"_pkg/src/github.com/project/internal/config/config.go": &fstest.MapFile{
 		Data: []byte(`
 package config
@@ -54,13 +31,14 @@ import (
 	"fmt"
 	"github.com/project/internal/impl"
 	"github.com/project/internal/config"
+	"github.com/project/pkg/dep"
 )
 
 type Processor interface {
 	Process() (string, error)
 }
 
-func Build(cfg config.Config) (impl.Dependency, error) {
+func Build(cfg config.Config) (dep.Dependency, error) {
 	return impl.New(cfg.Strategy), nil
 }
 `),
@@ -68,6 +46,30 @@ func Build(cfg config.Config) (impl.Dependency, error) {
 	"_pkg/src/github.com/project/internal/impl/processor.go": &fstest.MapFile{
 		Data: []byte(`
 package impl
+
+import (
+	"github.com/project/pkg/dep"
+)
+
+func New(args ...interface{}) dep.Dependency {
+	deps := dep.FromArgs(args...)
+
+	return dep.Dependency{
+		Name:         "impl.New",
+		Deps:         deps,
+		Flatten:      false,
+		ImportedFrom: "github.com/project/internal/impl",
+	}
+}
+`),
+	},
+	"_pkg/src/github.com/project/pkg/dep/dep.go": &fstest.MapFile{
+		Data: []byte(`
+package dep
+
+import (
+		"fmt"
+)
 
 type Dependency struct {
 	Name         string
@@ -77,7 +79,7 @@ type Dependency struct {
 	ImportedFrom string
 }
 
-func New(args ...interface{}) Dependency {
+func FromArgs(args ...interface{}) []Dependency {
 	var deps []Dependency
 
 	for _, arg := range args {
@@ -89,15 +91,12 @@ func New(args ...interface{}) Dependency {
 
 		case Dependency:
 			deps = append(deps, argT)
+		default:
+			panic(fmt.Sprintf("unknown type %T", arg))
 		}
 	}
 
-	return Dependency{
-		Name:         "impl.New",
-		Deps:         deps,
-		Flatten:      false,
-		ImportedFrom: "github.com/project/internal/impl",
-	}
+	return deps
 }
 `),
 	},
@@ -118,8 +117,6 @@ const buildHarnessTemplate = `
 			panic(err)
 		}
 
-		fmt.Println(components)
-
 		bytes, err := json.Marshal(components)
 		if err != nil {
 			panic(err)
@@ -128,10 +125,6 @@ const buildHarnessTemplate = `
 		return bytes
 	}
 `
-
-type Config struct {
-	Strategy string
-}
 
 func main() {
 	i := interp.New(interp.Options{
@@ -152,6 +145,7 @@ import (
 	"fmt"
 	"encoding/json"
 
+	"github.com/project/pkg/dep"
 	"github.com/project/internal/build"
 	"github.com/project/internal/config"
 	"github.com/project/internal/impl"
