@@ -13,6 +13,7 @@ import (
 
 var buitins = []string{
 	"append",
+	"make",
 }
 
 type dependency struct {
@@ -183,6 +184,12 @@ func (e *Evaluator) evalExpr(expr ast.Expr) (dependency, error) {
 		return e.evalExpr(t.X)
 	case *ast.BinaryExpr:
 		return e.evalBinaryExpr(t)
+	case *ast.MapType:
+		return dependency{
+			name:    "map",
+			flatten: true,
+			created: "MapType",
+		}, nil
 	default:
 		return dependency{}, errors.New("unknown expr type in eval, " + reflect.TypeOf(t).String())
 	}
@@ -423,7 +430,7 @@ func (e *Evaluator) evalSelectorRecursively(expr *ast.SelectorExpr) (string, *de
 
 func (e *Evaluator) evalCompositeLiteral(expr *ast.CompositeLit) (dependency, error) {
 	if len(expr.Elts) == 0 {
-		return dependency{flatten: true, created: "CompositeLit, empty"}, nil
+		return dependency{flatten: false, created: "CompositeLit, empty"}, nil
 	}
 
 	first := expr.Elts[0]
@@ -517,6 +524,9 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		}
 
 		name = t.Name
+		if t.Name == "make" {
+			name = ""
+		}
 		flatten = false
 	case *ast.SelectorExpr:
 		fnName := t.Sel.Name
@@ -667,6 +677,9 @@ func (e *Evaluator) evalStatement(stmt ast.Stmt) (dependency, error) {
 				if dep != nil {
 					deps = append(deps, *dep)
 				}
+			case *ast.IndexExpr:
+				name = i.X.(*ast.Ident).Name + "." + i.Index.(*ast.BasicLit).Value
+
 			default:
 				return dependency{}, errors.New("unknown assign stmt type in eval, " + reflect.TypeOf(i).String())
 			}
@@ -870,7 +883,17 @@ func printDep(dep dependency, level int) {
 }
 
 func (e *Evaluator) setEnv(name string, dep dependency) {
-	e.env.dep[name] = dep
+	splitName := strings.SplitN(name, ".", 2)
+	if len(splitName) > 1 && splitName[0] != e.currentReceiver {
+		name := splitName[0]
+		key := splitName[1]
+		dep.name = key
+		aggregateNode := e.env.dep[name]
+		aggregateNode.deps[0].deps = append(aggregateNode.deps[0].deps, dep)
+		e.env.dep[name] = aggregateNode
+	} else {
+		e.env.dep[name] = dep
+	}
 	split := strings.Split(name, ".")
 
 	if len(split) > 1 && e.currentReceiver != "" && split[0] == e.currentReceiver {

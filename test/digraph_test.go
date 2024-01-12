@@ -34,6 +34,9 @@ var test3 embed.FS
 //go:embed _modules/nested_structs/build
 var test4 embed.FS
 
+//go:embed _modules/map_insert/build
+var test5 embed.FS
+
 func TestDigraph(t *testing.T) {
 	tests := []Test{
 		{
@@ -59,6 +62,12 @@ func TestDigraph(t *testing.T) {
 			entrypoint: "Worker.Fill",
 			fs:         test4,
 			path:       "_modules/nested_structs/",
+		},
+		{
+			name:       "test inserting into map",
+			entrypoint: "Build",
+			fs:         test5,
+			path:       "_modules/map_insert/",
 		},
 	}
 

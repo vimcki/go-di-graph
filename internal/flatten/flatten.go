@@ -335,6 +335,12 @@ func (f *Flattener) fillCtxWithResult(
 		ctxEntry.(map[string]interface{})[lhs.Sel.Name] = result
 
 		return nil
+	case *ast.IndexExpr:
+		// TODO: implement
+		// this is case when we write to map, like this:
+		// endpoints["/"] = common.New()
+		// not sure if its needed
+		return nil
 	default:
 		return fmt.Errorf("unknown lhs type: %T", lhs)
 	}
