@@ -581,6 +581,12 @@ func (e *Evaluator) evalCallExpr(callExpr *ast.CallExpr) (dependency, error) {
 		default:
 			return dependency{}, errors.New("unknown call expr type in eval selector expr, " + reflect.TypeOf(t).String())
 		}
+	case *ast.ArrayType:
+		return dependency{
+			name:    "[]",
+			flatten: true,
+			created: "ArrayType",
+		}, nil
 	default:
 		return dependency{}, errors.New("unknown call expr type in eval, " + reflect.TypeOf(t).String())
 	}
