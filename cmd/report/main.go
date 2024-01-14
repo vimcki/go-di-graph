@@ -1,26 +1,10 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"os"
+
+	"github.com/vimcki/go-di-graph/internal/report"
 )
-
-type report struct {
-	Report Report `json:"report"`
-}
-
-type Report struct {
-	Title  string        `json:"title"`
-	Graph  GraphOrConfig `json:"graph"`
-	Config GraphOrConfig `json:"config"`
-}
-
-type GraphOrConfig struct {
-	Data string `json:"data"`
-}
 
 func main() {
 	name := "freya"
@@ -34,40 +18,10 @@ func main() {
 		panic(err)
 	}
 
-	report := report{
-		Report: Report{
-			Title: name,
-			Graph: GraphOrConfig{
-				Data: string(graphData),
-			},
-			Config: GraphOrConfig{
-				Data: string(configData),
-			},
-		},
-	}
-
-	serializd, err := json.Marshal(report)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(string(serializd))
-
-	req, err := http.NewRequest(
-		"POST",
+	report.SendReport(
+		"freya",
 		"http://localhost:4000/api/reports",
-		bytes.NewReader(serializd),
+		string(graphData),
+		string(configData),
 	)
-
-	req.Header.Set("Content-Type", "application/json")
-
-	if err != nil {
-		panic(err)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(resp.Status)
 }

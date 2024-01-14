@@ -16,22 +16,29 @@ import (
 	"github.com/vimcki/go-di-graph/internal/flatten"
 	"github.com/vimcki/go-di-graph/internal/frontend/d2"
 	"github.com/vimcki/go-di-graph/internal/frontend/jointjs"
+	"github.com/vimcki/go-di-graph/internal/report"
 )
 
+type reportConfig struct {
+	addr string
+	id   string
+}
+
 type Digraph struct {
-	marshaler   func(interface{}) ([]byte, error)
-	config      string
-	dir         string
-	graph       []byte
-	contentType string
-	entrypoint  string
-	buildFS     fs.FS
-	err         error
-	lock        sync.RWMutex
-	render      func([]byte) ([]byte, string, error)
-	blocking    bool
-	repoName    string
-	baseUrl     string
+	marshaler    func(interface{}) ([]byte, error)
+	config       string
+	dir          string
+	graph        []byte
+	contentType  string
+	entrypoint   string
+	buildFS      fs.FS
+	err          error
+	lock         sync.RWMutex
+	render       func([]byte) ([]byte, string, error)
+	blocking     bool
+	repoName     string
+	baseUrl      string
+	reportConfig reportConfig
 }
 
 func New(
@@ -60,6 +67,15 @@ func New(
 	graph.config = string(cfgString)
 
 	return graph, nil
+}
+
+func WithSendReport(id, addr string) func(*Digraph) {
+	return func(d *Digraph) {
+		d.reportConfig = reportConfig{
+			id:   id,
+			addr: addr,
+		}
+	}
 }
 
 func WithCustomMarshal() func(*Digraph) {
@@ -144,6 +160,13 @@ func (d *Digraph) buildGraph() error {
 	rendered, contentType, err := d.render(graph)
 	if err != nil {
 		return fmt.Errorf("failed to render graph: %w", err)
+	}
+
+	if d.reportConfig.addr != "" {
+		err = report.Send(d.reportConfig.id, d.reportConfig.addr, string(graph), d.config)
+		if err != nil {
+			return fmt.Errorf("failed to send report, %w", err)
+		}
 	}
 
 	d.lock.Lock()
